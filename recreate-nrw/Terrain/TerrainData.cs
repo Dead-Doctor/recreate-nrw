@@ -127,10 +127,11 @@ public class TerrainData
     public int count;
 
     /// <summary>
-    /// Time (avg for 9x):
+    /// Time (avg for 9x, changes additional to previous):
     /// Line by line: 242ms
-    /// Line by line (reading blocks): 214ms
-    /// 100 Lines at a time (reading blocks): 196ms
+    /// Use 'ReadBlock': 214ms
+    /// 100 Lines at a time: 196ms
+    /// Parse Int manually: 139ms
     /// </summary>
     private int[] LoadData(Vector2i tile)
     {
@@ -178,10 +179,17 @@ public class TerrainData
                 
                 for (var j = 0; j < linesPerBlock; j++)
                 {
-                    var height = int.Parse(string.Concat(
-                        buffer.AsSpan(j * lineLength + firstBlockIndex, firstBlockLength),
-                        buffer.AsSpan(j * lineLength + secondBlockIndex, secondBlockLength)
-                    ));
+                    var height = 0;
+                    for (var k = 0; k < firstBlockLength; k++)
+                    {
+                        height *= 10;
+                        height += buffer[j * lineLength + firstBlockIndex + k] - '0';
+                    }
+                    for (var k = 0; k < secondBlockLength; k++)
+                    {
+                        height *= 10;
+                        height += buffer[j * lineLength + secondBlockIndex + k] - '0';
+                    }
                     var lineI = i * linesPerBlock + j;
                     var y = (999 - lineI / 1000) * 1000;
                     data[y + lineI % 1000] = height;
