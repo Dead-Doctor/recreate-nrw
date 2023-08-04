@@ -49,11 +49,11 @@ public class TerrainData
     }
 
     public Profiler? Profiler;
-    
+
     public Tile GetTile(Vector2i pos)
     {
         Profiler = new Profiler("GetTile");
-        
+
         // Check loaded
         if (_tiles.TryGetValue(pos, out var tile)) return tile;
 
@@ -66,13 +66,13 @@ public class TerrainData
         {
             // Generate from heightmap
             tile = CreateTile(pos);
-            
+
             //TODO: do asynchronous
             //TODO: SaveTile(generatedTile);
         }
 
         _tiles.Add(pos, tile);
-        
+
         Profiler.StopProfiler();
         return tile;
     }
@@ -103,7 +103,7 @@ public class TerrainData
                 var xEndStrip = Math.Min(xStartStrip + stepToNextDataTile, xEnd);
 
                 var data = GetData(Coordinate.FloorToInt(new Vector2(xStartStrip, y) / DataSize));
-                
+
                 var dataIndex = OffsetInDataTile(y) * DataSize + OffsetInDataTile(xStartStrip);
                 var tileIndex = zOffset * TileSize + (xStartStrip - xStart);
                 Array.Copy(data, dataIndex, tile, tileIndex, xEndStrip - xStartStrip);
@@ -112,7 +112,7 @@ public class TerrainData
             }
         }
 
-        Profiler?.Stop(/*CreateTile*/);
+        Profiler?.Stop( /*CreateTile*/);
         return new Tile(pos, tile);
     }
 
@@ -125,11 +125,11 @@ public class TerrainData
 
     public TimeSpan total = TimeSpan.Zero;
     public int count;
-    
+
     /// <summary>
     /// Time (avg for 9x):
-    /// Line by line (with pre computed indexes): 242ms
-    /// 
+    /// Line by line: 242ms
+    /// Line by line (reading blocks): 214ms
     /// </summary>
     private int[] LoadData(Vector2i tile)
     {
@@ -147,30 +147,33 @@ public class TerrainData
 
 
             var line = reader.ReadLine()!;
-        
+
             var lastSpace = line[..^1].LastIndexOf(' ');
             var blocks = line.Split(' ')[2].Split('.');
             var firstBlockIndex = lastSpace + 1;
             var firstBlockLength = blocks[0].Length;
             var secondBlockIndex = firstBlockIndex + firstBlockLength + 1;
             var secondBlockLength = blocks[1].Length;
-            
+
+            var buffer = (line + "\r\n").ToCharArray();
+
             //TODO: use some sort of partitioning or parallel processing
             Profiler?.Start("Read lines");
             for (var i = 0; i < DataArea; i++)
             {
+                if (i != 0) reader.ReadBlock(buffer, 0, buffer.Length);
                 var height = int.Parse(string.Concat(
-                    line.AsSpan(firstBlockIndex, firstBlockLength),
-                    line.AsSpan(secondBlockIndex, secondBlockLength)
+                    buffer.AsSpan(firstBlockIndex, firstBlockLength),
+                    buffer.AsSpan(secondBlockIndex, secondBlockLength)
                 ));
                 var y = (999 - i / 1000) * 1000;
                 data[y + i % 1000] = height;
-                line = reader.ReadLine()!;
             }
-            Profiler?.Stop(/*Read lines*/);
-            
+
+            Profiler?.Stop( /*Read lines*/);
+
             _data.Add(tile, data);
-            
+
             stopwatch.Stop();
             total += stopwatch.Elapsed;
             count++;
@@ -180,8 +183,8 @@ public class TerrainData
             //TODO: Temp
             Console.WriteLine($"[WARNING]: Data tile was not found. {tile}");
         }
-        
-        Profiler?.Stop(/*LoadData*/);
+
+        Profiler?.Stop( /*LoadData*/);
         return data;
     }
 }
