@@ -1,0 +1,163 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net6.0</TargetFramework>
+        <RootNamespace>recreate_nrw</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="ImGui.NET.Docking" Version="1.75.0" />
+      <PackageReference Include="JetBrains.Annotations" Version="2023.2.0" />
+      <PackageReference Include="OpenTK" Version="4.7.7" />
+      <PackageReference Include="StbImageSharp" Version="2.27.13" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="Shaders\shader.frag" />
+      <None Remove="Shaders\terrainModel.frag" />
+      <None Remove="Shaders\terrainModel.vert" />
+      <Content Include="Shaders\shader.frag">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Shaders\shader.vert" />
+      <Content Include="Shaders\shader.vert">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Textures\container.jpg" />
+      <Content Include="Resources\container.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\awesomeface.png" />
+      <Content Include="Resources\awesomeface.png">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Shaders\terrain.frag" />
+      <None Remove="Shaders\terrain.vert" />
+      <None Remove="Resources\Concrete\Concrete042A_1K_AmbientOcclusion.jpg" />
+      <Content Include="Resources\Concrete\Concrete042A_1K_AmbientOcclusion.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Concrete\Concrete042A_1K_Color.jpg" />
+      <Content Include="Resources\Concrete\Concrete042A_1K_Color.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Concrete\Concrete042A_1K_Displacement.jpg" />
+      <Content Include="Resources\Concrete\Concrete042A_1K_Displacement.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Concrete\Concrete042A_1K_Normal.jpg" />
+      <Content Include="Resources\Concrete\Concrete042A_1K_Normal.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Concrete\Concrete042A_1K_Roughness.jpg" />
+      <Content Include="Resources\Concrete\Concrete042A_1K_Roughness.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Grass\Grass001_1K_AmbientOcclusion.jpg" />
+      <Content Include="Resources\Grass\Grass001_1K_AmbientOcclusion.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Grass\Grass001_1K_Color.jpg" />
+      <Content Include="Resources\Grass\Grass001_1K_Color.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Grass\Grass001_1K_Displacement.jpg" />
+      <Content Include="Resources\Grass\Grass001_1K_Displacement.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Grass\Grass001_1K_Normal.jpg" />
+      <Content Include="Resources\Grass\Grass001_1K_Normal.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Grass\Grass001_1K_Roughness.jpg" />
+      <Content Include="Resources\Grass\Grass001_1K_Roughness.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Dirt\Ground023_1K_AmbientOcclusion.jpg" />
+      <Content Include="Resources\Dirt\Ground023_1K_AmbientOcclusion.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Dirt\Ground023_1K_Color.jpg" />
+      <Content Include="Resources\Dirt\Ground023_1K_Color.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Dirt\Ground023_1K_Displacement.jpg" />
+      <Content Include="Resources\Dirt\Ground023_1K_Displacement.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Dirt\Ground023_1K_NormalGL.jpg" />
+      <Content Include="Resources\Dirt\Ground023_1K_NormalGL.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\Dirt\Ground023_1K_Roughness.jpg" />
+      <Content Include="Resources\Dirt\Ground023_1K_Roughness.jpg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <Content Include="Shaders\terrain.frag">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <Content Include="Shaders\terrain.vert">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <Content Include="Shaders\terrainModel.frag">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <Content Include="Shaders\terrainModel.vert">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Resources\data_347_5673_3332.gz" />
+      <Content Include="Resources\data_347_5673_3332.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Data\Raw\dgm1_32_346_5672_1_nw.xyz.gz" />
+      <Content Include="Data\Raw\dgm1_32_346_5672_1_nw.xyz.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Data\Raw\dgm1_32_346_5673_1_nw.xyz.gz" />
+      <Content Include="Data\Raw\dgm1_32_346_5673_1_nw.xyz.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Data\Raw\dgm1_32_346_5674_1_nw.xyz.gz" />
+      <Content Include="Data\Raw\dgm1_32_346_5674_1_nw.xyz.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Data\Raw\dgm1_32_347_5672_1_nw.xyz.gz" />
+      <Content Include="Data\Raw\dgm1_32_347_5672_1_nw.xyz.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Data\Raw\dgm1_32_347_5673_1_nw.xyz.gz" />
+      <Content Include="Data\Raw\dgm1_32_347_5673_1_nw.xyz.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Data\Raw\dgm1_32_347_5674_1_nw.xyz.gz" />
+      <Content Include="Data\Raw\dgm1_32_347_5674_1_nw.xyz.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Data\Raw\dgm1_32_348_5672_1_nw.xyz.gz" />
+      <Content Include="Data\Raw\dgm1_32_348_5672_1_nw.xyz.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Data\Raw\dgm1_32_348_5673_1_nw.xyz.gz" />
+      <Content Include="Data\Raw\dgm1_32_348_5673_1_nw.xyz.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Data\Raw\dgm1_32_348_5674_1_nw.xyz.gz" />
+      <Content Include="Data\Raw\dgm1_32_348_5674_1_nw.xyz.gz">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Data\Raw\" />
+      <Folder Include="Data\Tile\" />
+      <Folder Include="Resources\Dirt\" />
+    </ItemGroup>
+
+</Project>
