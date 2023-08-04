@@ -130,6 +130,7 @@ public class TerrainData
     /// Time (avg for 9x):
     /// Line by line: 242ms
     /// Line by line (reading blocks): 214ms
+    /// 100 Lines at a time (reading blocks): 196ms
     /// </summary>
     private int[] LoadData(Vector2i tile)
     {
@@ -155,19 +156,36 @@ public class TerrainData
             var secondBlockIndex = firstBlockIndex + firstBlockLength + 1;
             var secondBlockLength = blocks[1].Length;
 
-            var buffer = (line + "\r\n").ToCharArray();
+            const int linesPerBlock = 100;
+            // \r\n => +2 chars
+            var lineLength = line.Length + 2;
+            var buffer = new char[lineLength * linesPerBlock];
+
+            for (var j = 0; j < lineLength; j++)
+            {
+                if (j == lineLength - 2) buffer[j] = '\r';
+                else if (j == lineLength - 1) buffer[j] = '\n';
+                else buffer[j] = line[j];
+            }
+
+            reader.ReadBlock(buffer, lineLength, buffer.Length - lineLength);
 
             //TODO: use some sort of partitioning or parallel processing
             Profiler?.Start("Read lines");
-            for (var i = 0; i < DataArea; i++)
+            for (var i = 0; i < DataArea / linesPerBlock; i++)
             {
                 if (i != 0) reader.ReadBlock(buffer, 0, buffer.Length);
-                var height = int.Parse(string.Concat(
-                    buffer.AsSpan(firstBlockIndex, firstBlockLength),
-                    buffer.AsSpan(secondBlockIndex, secondBlockLength)
-                ));
-                var y = (999 - i / 1000) * 1000;
-                data[y + i % 1000] = height;
+                
+                for (var j = 0; j < linesPerBlock; j++)
+                {
+                    var height = int.Parse(string.Concat(
+                        buffer.AsSpan(j * lineLength + firstBlockIndex, firstBlockLength),
+                        buffer.AsSpan(j * lineLength + secondBlockIndex, secondBlockLength)
+                    ));
+                    var lineI = i * linesPerBlock + j;
+                    var y = (999 - lineI / 1000) * 1000;
+                    data[y + lineI % 1000] = height;
+                }
             }
 
             Profiler?.Stop( /*Read lines*/);
