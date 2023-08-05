@@ -1,5 +1,6 @@
 ﻿using System.IO.Compression;
 using OpenTK.Mathematics;
+using recreate_nrw.Util;
 
 namespace recreate_nrw.Terrain;
 
@@ -107,5 +108,5 @@ public class Heightmap
     /// </summary>
     /// <param name="pos">The position in world space.</param>
     /// <returns>The sub tile position.</returns>
-    private static Vector2i GetSubTilePos(Vector2i pos) => new((pos.X % Size + Size) % Size, (pos.Y % Size + Size) % Size);
+    private static Vector2i GetSubTilePos(Vector2i pos) => pos.Modulo(Size);
 }

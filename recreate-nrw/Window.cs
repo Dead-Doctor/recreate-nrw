@@ -8,6 +8,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using recreate_nrw.Render;
 using recreate_nrw.Terrain;
+using recreate_nrw.Util;
 
 namespace recreate_nrw;
 
@@ -46,7 +47,9 @@ public class Window : GameWindow
     protected override void OnLoad()
     {
         base.OnLoad();
-        GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        // GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        // Highlight seams in terrain
+        GL.ClearColor(1.0f, 0.0f, 0.0f, 1.0f);
         GL.Enable(EnableCap.DepthTest);
 
 #if DEBUG

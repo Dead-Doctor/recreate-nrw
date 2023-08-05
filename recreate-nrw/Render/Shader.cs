@@ -230,6 +230,6 @@ public class Uniform<T> : Uniform where T : struct
             var data = (Matrix4) Convert.ChangeType(Data, typeof(Matrix4));
             GL.UniformMatrix4(_handle, true, ref data);
         }
-        else throw new NotSupportedException($"Uniform of type '{typeof(T).Name}' is not supported!");
+        else throw new NotSupportedException($"Uniform of type '{typeof(T).Name}' is not supported.");
     }
 }

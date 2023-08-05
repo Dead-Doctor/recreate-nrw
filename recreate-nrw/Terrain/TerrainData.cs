@@ -78,12 +78,11 @@ public class TerrainData
             var xStartStrip = xStart;
             while (xStartStrip < xEnd)
             {
-                var fractionalPartOfDataTile = (xStart % DataSize + 1000) % 1000;
-                var stepToNextDataTile = 1000 - fractionalPartOfDataTile;
+                var stepToNextDataTile = DataSize - OffsetInDataTile(xStartStrip);
                 // Exclusive
                 var xEndStrip = Math.Min(xStartStrip + stepToNextDataTile, xEnd);
 
-                var data = GetData(Coordinate.FloorToInt(new Vector2(xStartStrip, y) / DataSize));
+                var data = GetData((new Vector2(xStartStrip, y) / DataSize).FloorToInt());
 
                 var dataIndex = OffsetInDataTile(y) * DataSize + OffsetInDataTile(xStartStrip);
                 var tileIndex = zOffset * TileSize + (xStartStrip - xStart);
@@ -99,7 +98,7 @@ public class TerrainData
 
     private static int OffsetInDataTile(int pos)
     {
-        return (pos % DataSize + DataSize) % DataSize;
+        return pos.Modulo(DataSize);
     }
 
     private int[] GetData(Vector2i tile) => _data.TryGetValue(tile, out var data) ? data : LoadData(tile);

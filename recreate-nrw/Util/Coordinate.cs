@@ -1,7 +1,7 @@
 ﻿using JetBrains.Annotations;
 using OpenTK.Mathematics;
 
-namespace recreate_nrw;
+namespace recreate_nrw.Util;
 
 
 //TODO: do not convert to float when only converting between tile spaces
@@ -40,7 +40,7 @@ public readonly struct Coordinate
     private Coordinate(Vector3 world)
     {
         _world = world;
-        _worldInt = FloorToInt(world);
+        _worldInt = world.FloorToInt();
     }
     
     
@@ -63,20 +63,14 @@ public readonly struct Coordinate
     public Vector2i TerrainTile() => WithoutHeight(_worldInt);
 
     [PublicAPI]
-    public Vector2i TerrainTileIndex() => FloorToInt(TerrainTile().ToVector2() / TerrainTileSize);
+    public Vector2i TerrainTileIndex() => (TerrainTile().ToVector2() / TerrainTileSize).FloorToInt();
 
     [PublicAPI]
     public Vector2i TerrainData() => (WithoutHeight(_worldInt) - TerrainDataOrigin) * TerrainDataFlip;
 
     [PublicAPI]
-    public Vector2i TerrainDataIndex() => FloorToInt(TerrainData().ToVector2() / TerrainDataSize);
+    public Vector2i TerrainDataIndex() => (TerrainData().ToVector2() / TerrainDataSize).FloorToInt();
 
-    [PublicAPI]
-    public static Vector2i FloorToInt(Vector2 vec) => new((int) Math.Floor(vec.X), (int) Math.Floor(vec.Y));
-    
-    [PublicAPI]
-    public static Vector3i FloorToInt(Vector3 vec) => new((int) Math.Floor(vec.X), (int) Math.Floor(vec.Y), (int) Math.Floor(vec.Z));
-    
     private static Vector2i WithoutHeight(Vector3i pos) => new(pos.X, pos.Z);
     private static Vector2 WithoutHeight(Vector3 pos) => new(pos.X, pos.Z);
     private static Vector3i WithHeight(Vector2i pos, int height) => new (pos.X, height, pos.Y);

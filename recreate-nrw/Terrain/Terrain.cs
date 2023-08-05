@@ -18,6 +18,7 @@ public class Terrain : IDisposable
     private int _renderDistance;
     // ReSharper disable once InconsistentNaming
     private int _LODs;
+    private int _biggestSquares;
     private int _chunks;
 
     private readonly Shader _shader;
@@ -26,7 +27,7 @@ public class Terrain : IDisposable
 
     //TODO: information graph
 
-    public int N
+    private int N
     {
         get => _n;
         set
@@ -38,13 +39,15 @@ public class Terrain : IDisposable
         }
     }
 
-    public int RenderDistance
+    private int RenderDistance
     {
         get => _renderDistance;
         set
         {
             _renderDistance = Math.Max(value, 2 * N);
             _LODs = (int) Math.Ceiling(Math.Log2((float) _renderDistance / N));
+            _biggestSquares = 1 << (_LODs - 1);
+            if (_biggestSquares >= N) Console.WriteLine("[WARNING]: Step size is greater or equal to the distance of highest LOD.");
             _chunks = 4 * (1 + 3 * _LODs);
         }
     }
@@ -142,11 +145,10 @@ public class Terrain : IDisposable
         if (zTileSpace < _top + 0.375) Update(xTileSpace, zTileSpace);
         else if (zTileSpace > _bottom - 0.375) Update(xTileSpace, zTileSpace);
 
-        //TODO: snap correctly
-        var offset = new Vector3(0.0f, 0.0f, 0.0f);
-        var eye = new Vector3(-offset.X, camera.Position.Y, -offset.Z);
+        var offset = -camera.Position.Xz.Modulo(_biggestSquares);
+        var eye = new Vector3(-offset.X, camera.Position.Y, -offset.Y);
         var viewMat = Matrix4.LookAt(eye, eye + camera.Front, camera.Up);
-        var modelPos = new Vector2(camera.Position.X, camera.Position.Z) + offset.Xz;
+        var modelPos = camera.Position.Xz + offset;
         _shader.SetUniform("modelPos", modelPos);
         _shader.SetUniform("viewMat", viewMat);
         _shader.SetUniform("projectionMat", camera.ProjectionMat);
@@ -204,10 +206,11 @@ public class Terrain : IDisposable
         if (ImGui.InputInt("N", ref cachedN, 8, 32, ImGuiInputTextFlags.EnterReturnsTrue))
             N = cachedN;
         ImGui.PopItemWidth();
-
-        var actualRenderDistance = N * (int) Math.Pow(2.0, _LODs);
+        
+        var actualRenderDistance = N * (1 << _LODs);
         ImGui.Text($"Actual: {actualRenderDistance}m ({_LODs} LODs)");
         ImGui.Value("Highest Quality", 2 * N, "%.0fm");
+        ImGui.Value("Step Size", _biggestSquares, "%.0fm");
         ImGui.Text($"Chunks: {_chunks} (Instanced)");
         var triangleCount = _chunks * N * N * 2;
         var naiveTriangleCount = actualRenderDistance * actualRenderDistance * 4 * 2;
