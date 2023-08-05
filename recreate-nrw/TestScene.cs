@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
 using recreate_nrw.Render;
 
 namespace recreate_nrw;
@@ -75,13 +74,11 @@ public class TestScene
     };
 
     private readonly Camera _camera;
-    private readonly Model _model;
     private readonly Shader _shader;
 
     private readonly ShadedModel _shadedModel;
 
     private readonly Stopwatch _time = Stopwatch.StartNew();
-    private TimeSpan _lastTime = TimeSpan.Zero;
 
     private readonly GameObject[] _cubes = new GameObject[10];
 
@@ -91,10 +88,10 @@ public class TestScene
     {
         _camera = camera;
         
-        _model = Model.FromArray(_vertices, _indices);
-        _model.AddVertexAttribute(new VertexAttribute("aPosition", VertexAttribType.Float, 3));
-        _model.AddVertexAttribute(new VertexAttribute("aNormal", VertexAttribType.Float, 3));
-        _model.AddVertexAttribute(new VertexAttribute("aUV", VertexAttribType.Float, 2));
+        var model = Model.FromArray(_vertices, _indices);
+        model.AddVertexAttribute(new VertexAttribute("aPosition", VertexAttribType.Float, 3));
+        model.AddVertexAttribute(new VertexAttribute("aNormal", VertexAttribType.Float, 3));
+        model.AddVertexAttribute(new VertexAttribute("aUV", VertexAttribType.Float, 2));
 
         _shader = new Shader("Shaders/shader.vert", "Shaders/shader.frag");
         _shader.AddUniform<float>("time");
@@ -104,7 +101,7 @@ public class TestScene
         _shader.AddTexture("container", Texture.LoadImageFile("Resources/container.jpg"));
         _shader.AddTexture("awesomeface", Texture.LoadImageFile("Resources/awesomeface.png"));
         
-        _shadedModel = new ShadedModel(_model, _shader);
+        _shadedModel = new ShadedModel(model, _shader);
 
         var rng = new Random(8245);
 

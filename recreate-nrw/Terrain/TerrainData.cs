@@ -1,7 +1,5 @@
 ﻿using System.IO.Compression;
 using OpenTK.Mathematics;
-using System;
-using System.Diagnostics;
 using recreate_nrw.Util;
 
 namespace recreate_nrw.Terrain;
@@ -30,24 +28,7 @@ public class TerrainData
     private Dictionary<Vector2i, int[]> _data = new();
     private Dictionary<Vector2i, Tile> _tiles = new();
     private List<Vector2i> _savedTiles = new();
-
-    public TerrainData()
-    {
-        /*Console.WriteLine("Loading Data...");
-        var timer = new Stopwatch();
-        for (var y = 5672; y <= 5674; y++)
-        {
-            for (var x = 346; x <= 348; x++)
-            {
-                timer.Restart();
-                GetData(new Vector2i(x, y));
-                Console.WriteLine($"{timer.Elapsed.Milliseconds}ms.");
-            }
-        }
-        timer.Stop();
-        Console.WriteLine("Done.");*/
-    }
-
+    
     public Profiler? Profiler;
 
     public Tile GetTile(Vector2i pos)
@@ -122,10 +103,7 @@ public class TerrainData
     }
 
     private int[] GetData(Vector2i tile) => _data.TryGetValue(tile, out var data) ? data : LoadData(tile);
-
-    public TimeSpan total = TimeSpan.Zero;
-    public int count;
-
+    
     /// <summary>
     /// Time (avg for 9x, changes additional to previous):
     /// Line by line: 242ms
@@ -139,8 +117,6 @@ public class TerrainData
         var data = new int[DataArea];
         try
         {
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
             var path = $"Data/Raw/dgm1_32_{tile.X}_{tile.Y}_1_nw.xyz.gz";
 
             using var stream = File.OpenRead(path);
@@ -199,10 +175,6 @@ public class TerrainData
             Profiler?.Stop( /*Read lines*/);
 
             _data.Add(tile, data);
-
-            stopwatch.Stop();
-            total += stopwatch.Elapsed;
-            count++;
         }
         catch (FileNotFoundException)
         {

@@ -18,7 +18,7 @@ public class Controls
     private const float ZoomFactor = 1f / 3f;
     private float _zoom;
 
-    private bool paused = true;
+    private bool _paused = true;
 
     private readonly Func<KeyboardState, float> _forwardsAxis = Axis(Keys.E, Keys.D);
     private readonly Func<KeyboardState, float> _sidewardsAxis = Axis(Keys.F, Keys.S);
@@ -36,9 +36,9 @@ public class Controls
         if (!_window.IsFocused) return;
         
         var input = _window.KeyboardState;
-        if (input.IsKeyPressed(Keys.Escape)) Pause(!paused);
+        if (input.IsKeyPressed(Keys.Escape)) Pause(!_paused);
 
-        if (paused) return;
+        if (_paused) return;
         
         if (input.IsKeyPressed(Keys.P)) _window.Debug ^= true;
 
@@ -74,13 +74,13 @@ public class Controls
 
     public void Pause(bool pause)
     {
-        if (paused == pause) return;
+        if (_paused == pause) return;
         _window.CursorState = pause ? CursorState.Normal : CursorState.Grabbed;
         var io = ImGui.GetIO();
         if (pause)
             io.ConfigFlags &= ~ImGuiConfigFlags.NoMouse;
         else
             io.ConfigFlags |= ImGuiConfigFlags.NoMouse;
-        paused = pause;
+        _paused = pause;
     }
 }

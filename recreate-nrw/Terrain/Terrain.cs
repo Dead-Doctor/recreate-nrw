@@ -16,6 +16,7 @@ public class Terrain : IDisposable
 
     private int _n = 32;
     private int _renderDistance;
+    // ReSharper disable once InconsistentNaming
     private int _LODs;
     private int _chunks;
 
@@ -216,8 +217,6 @@ public class Terrain : IDisposable
         ImGui.Text($"X: {_left} - {_right}");
         ImGui.Text($"Z: {_top} - {_bottom}");
 
-        ImGui.Text($"LoadData: {Profiler.FormatDuration(_data.total / _data.count)} ({_data.count}x)");
-        
         _data.Profiler?.ImGuiTree();
         
         ImGui.End();

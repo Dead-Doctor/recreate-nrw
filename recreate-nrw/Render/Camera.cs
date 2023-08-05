@@ -1,5 +1,4 @@
-﻿using ImGuiNET;
-using OpenTK.Mathematics;
+﻿using OpenTK.Mathematics;
 
 namespace recreate_nrw.Render;
 
