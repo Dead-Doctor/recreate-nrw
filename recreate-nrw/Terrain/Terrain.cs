@@ -57,10 +57,11 @@ public class Terrain : IDisposable
         Tile00 = _data.GetTile(new Vector2i(0, 0));
 
         _shader = new Shader("Shaders/terrain.vert", "Shaders/terrain.frag");
-        _shader.AddUniform<Matrix4>("modelMat");
+        _shader.AddUniform<Vector2>("modelPos");
         _shader.AddUniform<Matrix4>("viewMat");
         _shader.AddUniform<Matrix4>("projectionMat");
         _shader.AddUniform("n", N);
+        _shader.AddUniform("lightDir", new Vector3(1.0f, -1.0f, -1.0f));
 
         var data = new byte[TileSize * TileSize * 4];
         Buffer.BlockCopy(Tile00.Data, 0, data, 0, data.Length);
@@ -77,16 +78,15 @@ public class Terrain : IDisposable
     {
         var vertexCount = N + 1;
 
-        var vertices = new float[vertexCount * vertexCount * 3];
+        var vertices = new float[vertexCount * vertexCount * 2];
         var indices = new uint[N * N * 2 * 3];
 
         for (var z = 0; z < vertexCount; z++)
         {
             for (var x = 0; x < vertexCount; x++)
             {
-                vertices[(z * vertexCount + x) * 3 + 0] = x;
-                vertices[(z * vertexCount + x) * 3 + 1] = 0;
-                vertices[(z * vertexCount + x) * 3 + 2] = z;
+                vertices[(z * vertexCount + x) * 2 + 0] = x;
+                vertices[(z * vertexCount + x) * 2 + 1] = z;
             }
         }
 
@@ -115,7 +115,7 @@ public class Terrain : IDisposable
         }
 
         _model = Model.FromArray(vertices, indices);
-        _model.AddVertexAttribute(new VertexAttribute("aPosition", VertexAttribType.Float, 3));
+        _model.AddVertexAttribute(new VertexAttribute("aPosition", VertexAttribType.Float, 2));
         _shadedModel?.Dispose();
         _shadedModel = new ShadedModel(_model, _shader);
     }
@@ -145,8 +145,8 @@ public class Terrain : IDisposable
         var offset = new Vector3(0.0f, 0.0f, 0.0f);
         var eye = new Vector3(-offset.X, camera.Position.Y, -offset.Z);
         var viewMat = Matrix4.LookAt(eye, eye + camera.Front, camera.Up);
-        var modelPosition = new Vector3(camera.Position.X, 0.0f, camera.Position.Z) + offset;
-        _shader.SetUniform("modelMat", Matrix4.CreateTranslation(modelPosition));
+        var modelPos = new Vector2(camera.Position.X, camera.Position.Z) + offset.Xz;
+        _shader.SetUniform("modelPos", modelPos);
         _shader.SetUniform("viewMat", viewMat);
         _shader.SetUniform("projectionMat", camera.ProjectionMat);
 

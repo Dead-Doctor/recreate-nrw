@@ -212,6 +212,10 @@ public class Uniform<T> : Uniform where T : struct
         {
             GL.Uniform1(_handle, Convert.ToSingle(Data));
         }
+        else if (typeof(T) == typeof(Vector2))
+        {
+            GL.Uniform2(_handle, (Vector2)Convert.ChangeType(Data, typeof(Vector2)));
+        }
         else if (typeof(T) == typeof(Vector3))
         {
             GL.Uniform3(_handle, (Vector3)Convert.ChangeType(Data, typeof(Vector3)));
@@ -226,5 +230,6 @@ public class Uniform<T> : Uniform where T : struct
             var data = (Matrix4) Convert.ChangeType(Data, typeof(Matrix4));
             GL.UniformMatrix4(_handle, true, ref data);
         }
+        else throw new NotSupportedException($"Uniform of type '{typeof(T).Name}' is not supported!");
     }
 }

@@ -1,11 +1,11 @@
 ﻿#version 460 core
 
-in vec3 aPosition;
+in vec2 aPosition;
 
-out vec2 uv;
-out float height;
+out vec3 normal;
 
-uniform mat4 modelMat;
+// Camera position + snap offset
+uniform vec2 modelPos;
 uniform mat4 viewMat;
 uniform mat4 projectionMat;
 uniform int n;
@@ -32,6 +32,12 @@ float xor(float a, float b)
     return mod(a + b, 2.0);
 }
 
+float getHeight(vec2 pos) {
+    //TODO: multiple textures
+    if (0.0 > pos.x || pos.x >= 2048.0 || 0.0 > pos.y || pos.y >= 2048.0) return 0.0;
+    return texture(tile00, pos / 2048.0).r / 100.0;
+}
+
 void main()
 {
     float index = gl_InstanceID;
@@ -48,30 +54,37 @@ void main()
     float posLeftIsHorizontallyInside = xor(leftSide, topSide);
     float posIsHorizontallyInside = and(posInside, xor(posRight, posLeftIsHorizontallyInside));
     float posIsVerticallyInside = and(posInside, xor(posLeft, posLeftIsHorizontallyInside));
-    vec3 posOffsetDirection = vec3(and(posIsHorizontallyInside, leftSide * 2.0 - 1.0), 0.0, and(posIsVerticallyInside, topSide * 2.0 - 1.0));
+    vec2 posOffsetDirection = vec2(and(posIsHorizontallyInside, leftSide * 2.0 - 1.0), and(posIsVerticallyInside, topSide * 2.0 - 1.0));
     
     float level = floor((indexWithinCorner - 1.0) / 3.0);
     float scale = pow(2.0, max(level, 0.0));
     
-    vec3 offsetDirection = vec3(1.0 - leftSide * 2, 0.0, 1.0 - topSide * 2);
+    vec2 offsetDirection = vec2(1.0 - leftSide * 2, 1.0 - topSide * 2);
     float offsetCount = floor(pow(2.0, level));
     
     // Shift chunk to correct corner
-    vec3 position = aPosition - n * vec3(leftSide, 0.0, topSide);
+    vec2 relativPos = aPosition - n * vec2(leftSide, topSide);
     // Scale chunk
-    position *= scale;
+    relativPos *= scale;
     // Shift to correct ring
-    position += offsetCount * n * offsetDirection;
+    relativPos += offsetCount * n * offsetDirection;
     // Shift to correct position within ring
-    position += scale * n * posOffsetDirection;
+    relativPos += scale * n * posOffsetDirection;
     
-    //TODO: Calculate normals
+    vec2 pos = relativPos + modelPos;
+    float height = getHeight(pos);
     
-    uv = (vec4(position, 1.0) * modelMat).xz;
+    //https://stackoverflow.com/questions/6656358/calculating-normals-in-a-triangle-mesh/21660173#21660173
+    vec3 grid = vec3(1.0, 0.0, 1.0);
+    float Zleft = getHeight(pos - grid.xy);
+    float Zright = getHeight(pos + grid.xy);
+    float Zup = getHeight(pos - grid.yz);
+    float Zdown = getHeight(pos + grid.yz);
+    float Zupleft = getHeight(pos - grid.xz);
+    float Zdownright = getHeight(pos + grid.xz);
+    normal = normalize(vec3( (2.0*(Zleft - Zright) - Zdownright + Zupleft + Zdown - Zup) / grid.x,
+                             (2.0*(Zup - Zdown)    + Zdownright + Zupleft - Zdown - Zleft) / grid.z,
+                             6.0 ));
     
-    height = texture(tile00, uv / 2048.0).r / 100.0;
-    
-    if (0.0 > uv.x || uv.x >= 2048.0 || 0.0 > uv.y || uv.y >= 2048.0) height = 0.0;
-    
-    gl_Position = vec4(position + vec3(0.0, height, 0.0), 1.0) * viewMat * projectionMat;
+    gl_Position = vec4(vec3(relativPos.x, height, relativPos.y), 1.0) * viewMat * projectionMat;
 }
