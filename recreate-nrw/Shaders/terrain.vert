@@ -43,10 +43,10 @@ void main()
     float index = gl_InstanceID;
     float corner = mod(index, 4.0);
     float indexWithinCorner = floor(index / 4.0);
-    
+
     float leftSide = abs(ceil(corner / 2.0) - 1.0);
     float topSide = invert(floor(corner / 2.0));
-    
+
     float posIndex = mod(indexWithinCorner - 1.0, 3.0);
     float posInside = and(notZero(posIndex), notZero(indexWithinCorner));
     float posLeft = posIndex - posInside;
@@ -55,13 +55,13 @@ void main()
     float posIsHorizontallyInside = and(posInside, xor(posRight, posLeftIsHorizontallyInside));
     float posIsVerticallyInside = and(posInside, xor(posLeft, posLeftIsHorizontallyInside));
     vec2 posOffsetDirection = vec2(and(posIsHorizontallyInside, leftSide * 2.0 - 1.0), and(posIsVerticallyInside, topSide * 2.0 - 1.0));
-    
+
     float level = floor((indexWithinCorner - 1.0) / 3.0);
     float scale = pow(2.0, max(level, 0.0));
-    
+
     vec2 offsetDirection = vec2(1.0 - leftSide * 2, 1.0 - topSide * 2);
     float offsetCount = floor(pow(2.0, level));
-    
+
     // Shift chunk to correct corner
     vec2 relativPos = aPosition - n * vec2(leftSide, topSide);
     // Scale chunk
@@ -70,10 +70,10 @@ void main()
     relativPos += offsetCount * n * offsetDirection;
     // Shift to correct position within ring
     relativPos += scale * n * posOffsetDirection;
-    
+
     vec2 pos = relativPos + modelPos;
     float height = getHeight(pos);
-    
+
     //https://stackoverflow.com/questions/6656358/calculating-normals-in-a-triangle-mesh/21660173#21660173
     vec3 grid = vec3(1.0, 0.0, 1.0);
     float Zleft = getHeight(pos - grid.xy);
@@ -82,9 +82,11 @@ void main()
     float Zdown = getHeight(pos + grid.yz);
     float Zupleft = getHeight(pos - grid.xz);
     float Zdownright = getHeight(pos + grid.xz);
-    normal = normalize(vec3( (2.0*(Zleft - Zright) - Zdownright + Zupleft + Zdown - Zup) / grid.x,
-                             (2.0*(Zup - Zdown)    + Zdownright + Zupleft - Zdown - Zleft) / grid.z,
-                             6.0 ));
-    
+    normal = normalize(vec3(
+                           2.0 * (Zleft - Zright) - Zdownright + Zupleft + Zdown - Zup,
+                           2.0 * (Zup - Zdown) + Zdownright + Zupleft - Zdown - Zleft,
+                           6.0
+                       ));
+
     gl_Position = vec4(vec3(relativPos.x, height, relativPos.y), 1.0) * viewMat * projectionMat;
 }
