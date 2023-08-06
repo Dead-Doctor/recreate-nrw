@@ -16,8 +16,8 @@ float dirtToGrassStart = 0.93;
 float dirtToGrassEnd = 0.95;
 uniform sampler2D grassTexture;
 
-float ambient = 0.3;
-float diffuse = 0.7;
+float ambientMax = 0.3;
+float diffuseMax = 0.7;
 
 float textureSize = 1.0;
 
@@ -37,8 +37,7 @@ void main()
     vec4 grass = texture(grassTexture, uv);
     vec4 color = mixColors(angle, concrete, concreteToDirtStart, concreteToDirtEnd, dirt, dirtToGrassStart, dirtToGrassEnd, grass);
     
-    vec4 ambientColor = ambient * color;
-    vec4 diffuseColor = diffuse * max(dot(-lightDir, normal), 0.0) * color;
-
-    FragColor = ambientColor + diffuseColor;
+    float ambient = ambientMax;
+    float diffuse = diffuseMax * max(dot(-lightDir, normal), 0.0);
+    FragColor = (ambient + diffuse) * color;
 }

@@ -25,6 +25,7 @@ public class Terrain : IDisposable
     private Model? _model;
     private ShadedModel? _shadedModel;
 
+    private readonly Vector3 _lightDir;
     //TODO: information graph
 
     private int N
@@ -54,10 +55,11 @@ public class Terrain : IDisposable
 
     public readonly Tile Tile00;
 
-    public Terrain()
+    public Terrain(Vector3 lightDir)
     {
         RenderDistance = 512;
-
+        _lightDir = lightDir;
+        
         Tile00 = _data.GetTile(new Vector2i(0, 0));
 
         _shader = new Shader("Shaders/terrain.vert", "Shaders/terrain.frag");
@@ -65,7 +67,7 @@ public class Terrain : IDisposable
         _shader.AddUniform<Matrix4>("viewMat");
         _shader.AddUniform<Matrix4>("projectionMat");
         _shader.AddUniform("n", N);
-        _shader.AddUniform("lightDir", new Vector3(0.2f, -1.0f, -0.2f));
+        _shader.AddUniform("lightDir", _lightDir);
 
         var data = new byte[TileSize * TileSize * 4];
         Buffer.BlockCopy(Tile00.Data, 0, data, 0, data.Length);

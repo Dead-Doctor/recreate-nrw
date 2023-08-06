@@ -17,6 +17,20 @@ public class Window : GameWindow
     private readonly Heightmap _heightmap;
     private readonly TerrainModel _terrainModel;
 
+    // = null! equivalent to Kotlin's lateinit
+    // private TestScene _scene = null!;
+    private ImGuiController _controller = null!;
+    private Camera _camera = null!;
+    private Controls _controls = null!;
+    private Shader _terrainModelShader = null!;
+    private ShadedModel _shadedTerrainModel = null!;
+    private bool _renderTerrainModel = false;
+
+    private Terrain.Terrain _terrain = null!;
+
+    private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
+    public bool Debug;
+
     //TODO: limit fps
     public Window(int width, int height, string title) : base(GameWindowSettings.Default,
         new NativeWindowSettings {Size = (width, height), Title = title, APIVersion = new Version(4, 6)})
@@ -25,19 +39,6 @@ public class Window : GameWindow
         _heightmap.LoadTile(new Vector2i(0, 0));
         _terrainModel = new TerrainModel(_heightmap, new Vector2i(0, 0), 1000u);
     }
-
-    // = null! equivalent to Kotlin's lateinit
-    // private TestScene _scene = null!;
-    private ImGuiController _controller = null!;
-    private Camera _camera = null!;
-    private Controls _controls = null!;
-    private Shader _terrainModelShader = null!;
-    private ShadedModel _shadedTerrainModel = null!;
-
-    private Terrain.Terrain _terrain = null!;
-
-    private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
-    public bool Debug;
 
     /// <summary>
     /// Prevent Callback from being garbage collected.
@@ -73,7 +74,7 @@ public class Window : GameWindow
 
         _shadedTerrainModel = new ShadedModel(_terrainModel.Model, _terrainModelShader);
 
-        _terrain = new Terrain.Terrain();
+        _terrain = new Terrain.Terrain(_lightDir);
 
         // _scene = new TestScene(_camera);
     }
@@ -88,11 +89,16 @@ public class Window : GameWindow
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
 
         // _scene.OnRenderFrame();
-        /*_terrainModelShader.SetUniform("modelViewMat", _camera.ViewMat);
-        _terrainModelShader.SetUniform("projectionMat", _camera.ProjectionMat);
-        _shadedTerrainModel.Draw();*/
-
-        _terrain.Draw(_camera);
+        if (_renderTerrainModel)
+        {
+            _terrainModelShader.SetUniform("modelViewMat", _camera.ViewMat);
+            _terrainModelShader.SetUniform("projectionMat", _camera.ProjectionMat);
+            _shadedTerrainModel.Draw();
+        }
+        else
+        {
+            _terrain.Draw(_camera);
+        }
 
         if (Debug)
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
@@ -147,6 +153,11 @@ public class Window : GameWindow
 
         if (ImGui.Button("Home Sweet Home!"))
             _camera.Position = Coordinate.Epsg25832(new Vector2(347200, 5673200), _camera.Position.Y).World();
+
+        if (ImGui.Checkbox("Render Terrain Model", ref _renderTerrainModel))
+        {
+            _camera.Position += (_renderTerrainModel ? -1.0f : 1.0f) * new Vector3(1000.0f, 0.0f, 1001.0f);
+        }
 
         ImGui.End();
     }

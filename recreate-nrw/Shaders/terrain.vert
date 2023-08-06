@@ -81,6 +81,7 @@ void main()
     
     //Heights
     vec3 grid = vec3(scale, 0.0, scale);
+    float yHere = getHeight(pos);
     float yLeft = getHeight(pos - grid.xy);
     float yRight = getHeight(pos + grid.xy);
     float yTop = getHeight(pos - grid.yz);
@@ -114,16 +115,44 @@ void main()
     float verticalSeam = and(verticalEdgeOfLevel, vertexCouldHaveSeams);
     float horizontalInterpolation = (yLeft + yRight) * 0.5;
 
-    float height = mix(mix(getHeight(pos), horizontalInterpolation, verticalSeam), verticalInterpolation, horizontalSeam);
+    float height = mix(mix(yHere, horizontalInterpolation, verticalSeam), verticalInterpolation, horizontalSeam);
 
-    //TODO: Compare multiple normal algorithms
     // Implement seam calculation for normal calculation? (Probably not neaded since seams only appear
     // when lowering detail anyway so slight artifacts shadows are not noticable)
-    // https://stackoverflow.com/questions/6656358/calculating-normals-in-a-triangle-mesh/21660173#21660173
+    // Sum neighbouring triangles normals (optimized)
+    float scale2 = scale * scale;
+    float scale4 = scale2 * scale2;
+    
+    float y0 = yHere - yRight;
+    float y1 = yLeft - yHere;
+    float y2 = yTopLeft - yTop;
+    float y3 = yBottom - yBottomRight;
+    
+    float y4 = yHere - yBottom;
+    float y5 = yTop - yHere;
+    float y6 = yTopLeft - yLeft;
+    float y7 = yRight - yBottomRight;
+    
+    float y10 = y0 * y0;
+    float y11 = y1 * y1;
+    float y12 = y2 * y2;
+    float y13 = y3 * y3;
+    float y14 = y4 * y4;
+    float y15 = y5 * y5;
+    float y16 = y6 * y6;
+    float y17 = y7 * y7;
+    
+    float y20 = sqrt(scale4 + scale2 * (y10 + y15));
+    float y21 = sqrt(scale4 + scale2 * (y10 + y17));
+    float y22 = sqrt(scale4 + scale2 * (y11 + y14));
+    float y23 = sqrt(scale4 + scale2 * (y11 + y16));
+    float y24 = sqrt(scale4 + scale2 * (y12 + y15));
+    float y25 = sqrt(scale4 + scale2 * (y13 + y14));
+    
     normal = normalize(vec3(
-                           (2.0 * (yLeft - yRight) - yBottomRight + yTopLeft + yBottom - yTop) / grid.x,
-                           6.0,
-                           (2.0 * (yTop - yBottom) + yBottomRight + yTopLeft - yBottom - yLeft) / grid.z
+                           scale  * (y0  / y20 + y0  / y21 + y1  / y22 + y1  / y23 + y2  / y24 + y3  / y25),
+                           scale2 * (1.0 / y20 + 1.0 / y21 + 1.0 / y22 + 1.0 / y23 + 1.0 / y24 + 1.0 / y25),
+                           scale  * (y4  / y22 + y4  / y25 + y5  / y20 + y5  / y24 + y7  / y21 + y6  / y23)
                        ));
 
     gl_Position = vec4(vec3(relativPos.x, height, relativPos.y), 1.0) * viewMat * projectionMat;
