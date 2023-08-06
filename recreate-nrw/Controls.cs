@@ -8,7 +8,7 @@ namespace recreate_nrw;
 
 public class Controls
 {
-    private const float Speed = 20f;
+    private const float Speed = 100f;
     private const float Sensitivity = 0.05f / (2.0f * (float) Math.PI);
 
     // Time to zoom in/out in seconds
