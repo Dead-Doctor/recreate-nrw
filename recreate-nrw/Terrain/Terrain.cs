@@ -65,7 +65,7 @@ public class Terrain : IDisposable
         _shader.AddUniform<Matrix4>("viewMat");
         _shader.AddUniform<Matrix4>("projectionMat");
         _shader.AddUniform("n", N);
-        _shader.AddUniform("lightDir", new Vector3(1.0f, -1.0f, -1.0f));
+        _shader.AddUniform("lightDir", new Vector3(0.2f, -1.0f, -0.2f));
 
         var data = new byte[TileSize * TileSize * 4];
         Buffer.BlockCopy(Tile00.Data, 0, data, 0, data.Length);

@@ -79,7 +79,9 @@ public class Shader : IDisposable
         if (uniform == null) throw new MissingFieldException($"Uniform '{name}' could not be set as it was not registered in shader ({_handle}).");
         
         var typed = (Uniform<T>) uniform;
-        typed.Data = value;
+        if (typed._data.Equals(value)) return;
+        typed._data = value;
+        typed._dirty = true;
     }
 
     public T GetUniform<T>(string name) where T : struct
@@ -88,7 +90,7 @@ public class Shader : IDisposable
         if (uniform == null) throw new MissingFieldException($"Uniform '{name}' could not be queried as it was not registered in shader ({_handle}).");
         
         var typed = (Uniform<T>) uniform;
-        return typed.Data;
+        return typed._data;
     }
 
     public void AddTexture(string name, Texture texture)
@@ -175,20 +177,9 @@ public class Uniform<T> : Uniform where T : struct
 {
     private readonly int _handle;
 
-    private T _data;
+    public T _data;
 
-    public T Data
-    {
-        get => _data;
-        set
-        {
-            if (_data.Equals(value)) return;
-            _data = value;
-            _dirty = true;
-        }
-    }
-
-    private bool _dirty;
+    public bool _dirty = true;
 
     public Uniform(int handle, string name) : base(name)
     {
@@ -198,36 +189,37 @@ public class Uniform<T> : Uniform where T : struct
     public Uniform(int handle, string name, T initial) : base(name)
     {
         _handle = handle;
-        Data = initial;
+        _data = initial;
     }
 
     public override void Upload()
     {
         if (!_dirty) return;
+        _dirty = false;
         if (typeof(T) == typeof(int))
         {
-            GL.Uniform1(_handle, Convert.ToInt32(Data));
+            GL.Uniform1(_handle, Convert.ToInt32(_data));
         }
         else if (typeof(T) == typeof(float))
         {
-            GL.Uniform1(_handle, Convert.ToSingle(Data));
+            GL.Uniform1(_handle, Convert.ToSingle(_data));
         }
         else if (typeof(T) == typeof(Vector2))
         {
-            GL.Uniform2(_handle, (Vector2)Convert.ChangeType(Data, typeof(Vector2)));
+            GL.Uniform2(_handle, (Vector2)Convert.ChangeType(_data, typeof(Vector2)));
         }
         else if (typeof(T) == typeof(Vector3))
         {
-            GL.Uniform3(_handle, (Vector3)Convert.ChangeType(Data, typeof(Vector3)));
+            GL.Uniform3(_handle, (Vector3)Convert.ChangeType(_data, typeof(Vector3)));
         }
         else if (typeof(T) == typeof(Matrix3))
         {
-            var data = (Matrix3) Convert.ChangeType(Data, typeof(Matrix3));
+            var data = (Matrix3) Convert.ChangeType(_data, typeof(Matrix3));
             GL.UniformMatrix3(_handle, true, ref data);
         }
         else if (typeof(T) == typeof(Matrix4))
         {
-            var data = (Matrix4) Convert.ChangeType(Data, typeof(Matrix4));
+            var data = (Matrix4) Convert.ChangeType(_data, typeof(Matrix4));
             GL.UniformMatrix4(_handle, true, ref data);
         }
         else throw new NotSupportedException($"Uniform of type '{typeof(T).Name}' is not supported.");

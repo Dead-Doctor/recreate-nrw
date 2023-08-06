@@ -22,6 +22,11 @@ float notZero(float a)
     return min(a, 1.0);
 }
 
+float or(float a, float b)
+{
+    return min(a + b, 1.0);
+}
+
 float and(float a, float b)
 {
     return a * b;
@@ -34,8 +39,10 @@ float xor(float a, float b)
 
 float getHeight(vec2 pos) {
     //TODO: multiple textures
-    if (0.0 > pos.x || pos.x >= 2048.0 || 0.0 > pos.y || pos.y >= 2048.0) return 0.0;
-    return texture(tile00, pos / 2048.0).r / 100.0;
+    vec2 posFloored = floor(pos);
+    if (posFloored.x < 0.0 || posFloored.x >= 2048.0) return 0.0;
+    if (posFloored.y < 0.0 || posFloored.y >= 2048.0) return 0.0;
+    return texture(tile00, posFloored / 2048.0).r / 100.0;
 }
 
 void main()
@@ -70,22 +77,53 @@ void main()
     relativPos += offsetCount * n * offsetDirection;
     // Shift to correct position within ring
     relativPos += scale * n * posOffsetDirection;
-
     vec2 pos = relativPos + modelPos;
-    float height = getHeight(pos);
+    
+    //Heights
+    vec3 grid = vec3(scale, 0.0, scale);
+    float yLeft = getHeight(pos - grid.xy);
+    float yRight = getHeight(pos + grid.xy);
+    float yTop = getHeight(pos - grid.yz);
+    float yBottom = getHeight(pos + grid.yz);
+    float yTopLeft = getHeight(pos - grid.xz);
+    float yBottomRight = getHeight(pos + grid.xz);
+    
+    //Fix seams
+    vec2 edge = aPosition / n;
 
-    //https://stackoverflow.com/questions/6656358/calculating-normals-in-a-triangle-mesh/21660173#21660173
-    vec3 grid = vec3(1.0, 0.0, 1.0);
-    float Zleft = getHeight(pos - grid.xy);
-    float Zright = getHeight(pos + grid.xy);
-    float Zup = getHeight(pos - grid.yz);
-    float Zdown = getHeight(pos + grid.yz);
-    float Zupleft = getHeight(pos - grid.xz);
-    float Zdownright = getHeight(pos + grid.xz);
+    float leftEdgeOfTile = mod(ceil(edge.x + 1.0), 2.0);
+    float rightEdgeOfTile = floor(edge.x);
+    float topEdgeOfTile = mod(ceil(edge.y + 1.0), 2.0);
+    float bottomEdgeOfTile = floor(edge.y);
+
+    float leftEdgeOfTileLeft = and(leftEdgeOfTile, leftSide);
+    float rightEdgeOfTileRight = and(rightEdgeOfTile, invert(leftSide));
+    float topEdgeOfTileTop = and(topEdgeOfTile, topSide);
+    float bottomEdgeOfTileBottom = and(bottomEdgeOfTile, invert(topSide));
+
+    float horizontalEdgeOfLevel = and(invert(posIsHorizontallyInside), or(leftEdgeOfTileLeft, rightEdgeOfTileRight));
+    float verticalEdgeOfLevel = and(invert(posIsVerticallyInside), or(topEdgeOfTileTop, bottomEdgeOfTileBottom));
+
+    float tileCouldHaveSeams = notZero(level + 1.0);
+    float oddVertex = or(mod(aPosition.x, 2.0), mod(aPosition.y, 2.0));
+    float vertexCouldHaveSeams = and(tileCouldHaveSeams, oddVertex);
+
+    float horizontalSeam = and(horizontalEdgeOfLevel, vertexCouldHaveSeams);
+    float verticalInterpolation = (yTop + yBottom) * 0.5;
+    
+    float verticalSeam = and(verticalEdgeOfLevel, vertexCouldHaveSeams);
+    float horizontalInterpolation = (yLeft + yRight) * 0.5;
+
+    float height = mix(mix(getHeight(pos), horizontalInterpolation, verticalSeam), verticalInterpolation, horizontalSeam);
+
+    //TODO: Compare multiple normal algorithms
+    // Implement seam calculation for normal calculation? (Probably not neaded since seams only appear
+    // when lowering detail anyway so slight artifacts shadows are not noticable)
+    // https://stackoverflow.com/questions/6656358/calculating-normals-in-a-triangle-mesh/21660173#21660173
     normal = normalize(vec3(
-                           2.0 * (Zleft - Zright) - Zdownright + Zupleft + Zdown - Zup,
-                           2.0 * (Zup - Zdown) + Zdownright + Zupleft - Zdown - Zleft,
-                           6.0
+                           (2.0 * (yLeft - yRight) - yBottomRight + yTopLeft + yBottom - yTop) / grid.x,
+                           6.0,
+                           (2.0 * (yTop - yBottom) + yBottomRight + yTopLeft - yBottom - yLeft) / grid.z
                        ));
 
     gl_Position = vec4(vec3(relativPos.x, height, relativPos.y), 1.0) * viewMat * projectionMat;
