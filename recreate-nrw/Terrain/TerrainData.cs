@@ -68,7 +68,7 @@ public class TerrainData
 
         var xEnd = endPosData.X;
 
-        var tile = new int[TileArea];
+        var tile = new float[TileArea];
 
         for (var zOffset = 0; zOffset < TileSize; zOffset += 1)
         {
@@ -186,13 +186,13 @@ public class TerrainData
     }
 }
 
-//GL_R32I
+//GL_R32
 public readonly struct Tile
 {
     public readonly Vector2i Pos;
-    public readonly int[] Data;
+    public readonly float[] Data;
 
-    public Tile(Vector2i pos, int[] data)
+    public Tile(Vector2i pos, float[] data)
     {
         Pos = pos;
         Data = data;

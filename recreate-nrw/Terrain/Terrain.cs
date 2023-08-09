@@ -74,8 +74,8 @@ public class Terrain : IDisposable
         
         _shader.AddTexture("tile00",
             Texture.Load("tile:tile00",
-                _ => new TextureData(data, TileSize, TileSize, PixelFormat.RedInteger, PixelType.Int,
-                    SizedInternalFormat.R32i, TextureWrapMode.Repeat, true, false)));
+                _ => new TextureData(data, TileSize, TileSize, PixelFormat.Red, PixelType.Float,
+                    SizedInternalFormat.R32f, TextureWrapMode.Repeat, false, true)));
 
         GenerateModel();
     }
@@ -223,7 +223,7 @@ public class Terrain : IDisposable
         ImGui.Text($"Z: {_top} - {_bottom}");
 
         _data.Profiler?.ImGuiTree();
-        
+            
         ImGui.End();
     }
 
