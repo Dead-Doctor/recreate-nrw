@@ -50,7 +50,8 @@ public class Window : GameWindow
         base.OnLoad();
         GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         GL.Enable(EnableCap.DepthTest);
-
+        // GL_UNSIGNED_NORMALIZED
+        GL.Enable(EnableCap.CullFace);
 #if DEBUG
         GL.Enable(EnableCap.DebugOutput);
         GL.Enable(EnableCap.DebugOutputSynchronous);

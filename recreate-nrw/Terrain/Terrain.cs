@@ -108,14 +108,14 @@ public class Terrain : IDisposable
                 {
                     var i = ((z * N + x) * 2 + 0) * 3;
                     indices[i + 0] = topLeft;
-                    indices[i + 1] = topRight;
-                    indices[i + 2] = bottomRight;
+                    indices[i + 1] = bottomRight;
+                    indices[i + 2] = topRight;
                 }
                 {
                     var i = ((z * N + x) * 2 + 1) * 3;
                     indices[i + 0] = topLeft;
-                    indices[i + 1] = bottomRight;
-                    indices[i + 2] = bottomLeft;
+                    indices[i + 1] = bottomLeft;
+                    indices[i + 2] = bottomRight;
                 }
             }
         }
