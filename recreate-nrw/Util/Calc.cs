@@ -3,7 +3,6 @@ using OpenTK.Mathematics;
 
 namespace recreate_nrw.Util;
 
-//TODO: Convert to "extension" functions?
 public static class Calc
 {
     [PublicAPI]

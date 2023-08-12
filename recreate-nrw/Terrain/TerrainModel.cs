@@ -86,7 +86,6 @@ public class TerrainModel
         Model = Model.FromArray(vertices, indices);
         Model.AddVertexAttribute(new VertexAttribute("aPosition", VertexAttribType.Float, 3));
         Model.AddVertexAttribute(new VertexAttribute("aNormal", VertexAttribType.Float, 3));
-        //TODO: Enable back face culling
     }
 
     private uint Index(Vector2i pos)

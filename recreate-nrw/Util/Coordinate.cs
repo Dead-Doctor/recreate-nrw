@@ -3,8 +3,6 @@ using OpenTK.Mathematics;
 
 namespace recreate_nrw.Util;
 
-
-//TODO: do not convert to float when only converting between tile spaces
 public readonly struct Coordinate
 {
     public const int TerrainTileSize = 2048;

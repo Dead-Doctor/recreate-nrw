@@ -41,28 +41,6 @@ public class ShadedModel : IDisposable
         GL.VertexArrayVertexBuffer(_vao, bindingIndex, _vbo, (IntPtr)0, _model.GetVertexSize);
         GL.VertexArrayElementBuffer(_vao, _ebo);
         
-        /*_vao = GL.GenVertexArray();
-        GL.BindVertexArray(_vao);
-
-        _vbo = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, _model.GetVertexSize * _model.VertexCount, _model.Vertices, BufferUsageHint.StaticDraw);
-        
-        _ebo = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
-        GL.BufferData(BufferTarget.ElementArrayBuffer, _model.Indices.Length * sizeof(uint), _model.Indices, BufferUsageHint.StaticDraw);
-
-        
-        var stride = _model.GetVertexSize;
-        var offset = 0;
-        for (var i = 0; i < _model.VertexAttributes.Count; i++)
-        {
-            var attribute = _model.VertexAttributes[i];
-            GL.VertexAttribPointer(i, attribute.Count, attribute.Type, attribute.Normalized, stride, offset);
-            offset += attribute.GetSize();
-            GL.EnableVertexAttribArray(Shader.GetAttribLocation(attribute.Name));
-        }*/
-        
         Shader.Deactivate();
     }
 
@@ -106,11 +84,7 @@ public class ShadedModel : IDisposable
         if (_disposedValue) return;
         GC.SuppressFinalize(this);
 
-        //TODO: Usage of DSA
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
         GL.DeleteBuffer(_vbo);
-
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
         GL.DeleteBuffer(_ebo);
         
         GL.BindVertexArray(0);

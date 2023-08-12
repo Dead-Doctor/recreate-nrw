@@ -14,6 +14,8 @@ namespace recreate_nrw;
 
 public class Window : GameWindow
 {
+    private bool _vsync = true;
+    
     private readonly Heightmap _heightmap;
     private readonly TerrainModel _terrainModel;
 
@@ -31,10 +33,13 @@ public class Window : GameWindow
     private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
     public bool Debug;
 
-    //TODO: limit fps
-    public Window(int width, int height, string title) : base(GameWindowSettings.Default,
-        new NativeWindowSettings {Size = (width, height), Title = title, APIVersion = new Version(4, 6)})
+    public Window() : base(
+        GameWindowSettings.Default,
+        new NativeWindowSettings
+            {Title = "Recreate NRW", Size = (960, 540), APIVersion = new Version(4, 6)}
+    )
     {
+        VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
         _heightmap = new Heightmap(new Vector2i(347, 5673));
         _heightmap.LoadTile(new Vector2i(0, 0));
         _terrainModel = new TerrainModel(_heightmap, new Vector2i(0, 0), 1000u);
@@ -122,6 +127,10 @@ public class Window : GameWindow
     {
         ImGui.Begin("Info");
 
+        ImGui.Value("Fps", (float) _fps);
+        if (ImGui.Checkbox("VSync", ref _vsync))
+            VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
+        
         if (ImGuiVector3("Position", _camera.Position, out var newPosition))
             _camera.Position = newPosition;
 
@@ -129,24 +138,10 @@ public class Window : GameWindow
         if (ImGuiVector2("EPSG:25832", terrainData, out var newCoordinates))
             _camera.Position = Coordinate.Epsg25832(newCoordinates, _camera.Position.Y).World();
 
-        //TODO: Fix
         if (ImGui.Button("To Coords"))
             OpenUrl(
                 $"https://epsg.io/transform#s_srs=25832&t_srs=4326&ops=1149&x={terrainData.X.ToString(CultureInfo.InvariantCulture)}&y={terrainData.Y.ToString(CultureInfo.InvariantCulture)}");
 
-        string height;
-        try
-        {
-            height = _heightmap[
-                    new Vector2i((int) Math.Floor(_camera.Position.X), (int) Math.Floor(_camera.Position.Z))].Y
-                .ToString(CultureInfo.InvariantCulture);
-        }
-        catch (Exception)
-        {
-            height = "[UNLOADED]";
-        }
-
-        ImGui.Text($"Height of Terrain: {height}");
         if (_camera.Position.X is >= 0.0f and < Coordinate.TerrainTileSize &&
             _camera.Position.Z is >= 0.0f and < Coordinate.TerrainTileSize)
             ImGui.Value("Tile",
@@ -165,31 +160,7 @@ public class Window : GameWindow
 
     private static void OpenUrl(string url)
     {
-        try
-        {
-            Process.Start(url);
-        }
-        catch
-        {
-            // hack because of this: https://github.com/dotnet/corefx/issues/10361
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                url = url.Replace("&", "^&");
-                Process.Start(new ProcessStartInfo(url) {UseShellExecute = true});
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                Process.Start("xdg-open", url);
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                Process.Start("open", url);
-            }
-            else
-            {
-                throw;
-            }
-        }
+        Process.Start(new ProcessStartInfo(url) {UseShellExecute = true});
     }
 
     //TODO: ImGui Wrapper? / Util class
@@ -209,12 +180,22 @@ public class Window : GameWindow
         return result;
     }
 
+    private int _frameCount;
+    private double _timeSinceLastFpsUpdate;
+    private double _fps;
+
     protected override void OnUpdateFrame(FrameEventArgs e)
     {
         base.OnUpdateFrame(e);
         _controls.Update(e.Time, _camera);
         _controller.Update(this, (float) e.Time);
-        //Console.WriteLine($"FPS: {(int)Math.Round(1.0 / args.Time),4}");
+        
+        _frameCount++;
+        _timeSinceLastFpsUpdate += e.Time;
+        if (_timeSinceLastFpsUpdate < 1.0) return;
+        _fps = _frameCount / _timeSinceLastFpsUpdate;
+        _frameCount = 0;
+        _timeSinceLastFpsUpdate = 0.0;
     }
 
     protected override void OnResize(ResizeEventArgs e)

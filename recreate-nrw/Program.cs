@@ -2,5 +2,5 @@
 
 using recreate_nrw;
 
-using var window = new Window(960, 540, "Recreate NRW");
+using var window = new Window();
 window.Run();

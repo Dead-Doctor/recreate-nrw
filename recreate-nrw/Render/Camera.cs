@@ -1,4 +1,5 @@
 ﻿using OpenTK.Mathematics;
+using recreate_nrw.Util;
 
 namespace recreate_nrw.Render;
 
@@ -52,16 +53,20 @@ public class Camera
     
     public void Move(Vector3 distance) => Position += distance;
 
-    private const float Epsilon = 0.1f;
+    private const float Epsilon = 0.001f;
     private void SetEuler(float yaw, float pitch)
     {
-        _yaw = yaw;
+        _yaw = yaw.Modulo(MathHelper.TwoPi);
         const float limit = MathHelper.PiOver2 - Epsilon;
         _pitch = Math.Clamp(pitch, -limit, limit);
-        
-        Front.X = (float) Math.Cos(pitch) * (float) Math.Sin(yaw);
-        Front.Y = (float) Math.Sin(pitch);
-        Front.Z = (float) Math.Cos(pitch) * -(float) Math.Cos(yaw);
+
+        var pitchSin = (float) Math.Sin(_pitch);
+        var pitchCos = (float) Math.Cos(_pitch);
+        var yawSin   = (float) Math.Sin(_yaw);
+        var yawCos   = (float) Math.Cos(_yaw);
+        Front.X = pitchCos * yawSin;
+        Front.Y = pitchSin;
+        Front.Z = pitchCos * -yawCos;
         Front.Normalize();
         CalculateRight();
     }
