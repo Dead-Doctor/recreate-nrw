@@ -53,16 +53,14 @@ public class Window : GameWindow
     protected override void OnLoad()
     {
         base.OnLoad();
-        GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        GL.Enable(EnableCap.DepthTest);
-        // GL_UNSIGNED_NORMALIZED
-        GL.Enable(EnableCap.CullFace);
 #if DEBUG
         GL.Enable(EnableCap.DebugOutput);
         GL.Enable(EnableCap.DebugOutputSynchronous);
         GL.DebugMessageCallback(_openGlDebugCallback, (IntPtr) 0);
 #endif
-
+        Renderer.ClearColor = new Color4(0.2f, 0.3f, 0.3f, 1.0f);
+        Renderer.DepthTesting = true;
+        Renderer.BackFaceCulling = true;
         _controller = new ImGuiController(ClientSize.X, ClientSize.Y);
 
         _camera = new Camera(Size, new Vector3(0.0f, 100.0f, 0.0f));
@@ -89,10 +87,10 @@ public class Window : GameWindow
     {
         base.OnRenderFrame(e);
 
-        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+        Renderer.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         if (Debug)
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+            Renderer.PolygonMode = PolygonMode.Line;
 
         // _scene.OnRenderFrame();
         if (_renderTerrainModel)
@@ -107,8 +105,7 @@ public class Window : GameWindow
         }
 
         if (Debug)
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
-
+            Renderer.PolygonMode = PolygonMode.Fill;
 
         ImGui.DockSpaceOverViewport(ImGui.GetMainViewport(),
             ImGuiDockNodeFlags.PassthruCentralNode | ImGuiDockNodeFlags.NoDockingInCentralNode);
@@ -201,7 +198,7 @@ public class Window : GameWindow
     protected override void OnResize(ResizeEventArgs e)
     {
         base.OnResize(e);
-        GL.Viewport(0, 0, e.Width, e.Height);
+        Renderer.Viewport = new Box2i(0, 0, e.Width, e.Height);
 
         _controller.WindowResized(e.Width, e.Height);
         _camera.Resize(e.Size);
