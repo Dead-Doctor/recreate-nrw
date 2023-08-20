@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Runtime.InteropServices;
 using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
@@ -150,15 +149,15 @@ public class Window : GameWindow
         if (ImGui.Checkbox("VSync", ref _vsync))
             VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
         
-        if (ImGuiVector3("Position", _camera.Position, out var newPosition))
+        if (ImGuiExtension.ImGuiVector3("Position", _camera.Position, out var newPosition))
             _camera.Position = newPosition;
 
         var terrainData = Coordinate.World(_camera.Position).Epsg25832();
-        if (ImGuiVector2("EPSG:25832", terrainData, out var newCoordinates))
+        if (ImGuiExtension.ImGuiVector2("EPSG:25832", terrainData, out var newCoordinates))
             _camera.Position = Coordinate.Epsg25832(newCoordinates, _camera.Position.Y).World();
 
         if (ImGui.Button("To Coords"))
-            OpenUrl(
+            ImGuiExtension.OpenUrl(
                 $"https://epsg.io/transform#s_srs=25832&t_srs=4326&ops=1149&x={terrainData.X.ToString(CultureInfo.InvariantCulture)}&y={terrainData.Y.ToString(CultureInfo.InvariantCulture)}");
 
         if (_camera.Position.X is >= 0.0f and < Coordinate.TerrainTileSize &&
@@ -175,28 +174,6 @@ public class Window : GameWindow
         }
 
         ImGui.End();
-    }
-
-    private static void OpenUrl(string url)
-    {
-        Process.Start(new ProcessStartInfo(url) {UseShellExecute = true});
-    }
-
-    //TODO: ImGui Wrapper? / Util class
-    private static bool ImGuiVector2(string label, Vector2 value, out Vector2 newValue)
-    {
-        var vec = new System.Numerics.Vector2(value.X, value.Y);
-        var result = ImGui.DragFloat2(label, ref vec);
-        newValue = new Vector2(vec.X, vec.Y);
-        return result;
-    }
-
-    private static bool ImGuiVector3(string label, Vector3 value, out Vector3 newValue)
-    {
-        var pos = new System.Numerics.Vector3(value.X, value.Y, value.Z);
-        var result = ImGui.DragFloat3(label, ref pos);
-        newValue = new Vector3(pos.X, pos.Y, pos.Z);
-        return result;
     }
 
     protected override void OnResize(ResizeEventArgs e)
