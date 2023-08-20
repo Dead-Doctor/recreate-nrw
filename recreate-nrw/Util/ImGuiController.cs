@@ -1,13 +1,13 @@
-﻿using ImGuiNET;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using System.Diagnostics;
 using ErrorCode = OpenTK.Graphics.OpenGL4.ErrorCode;
 
-namespace recreate_nrw
+namespace recreate_nrw.Util
 {
     public class ImGuiController : IDisposable
     {

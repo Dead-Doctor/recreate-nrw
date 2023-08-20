@@ -7,6 +7,7 @@ public static class Renderer
 {
     private static Color4 _clearColor;
     private static bool _depthTesting; //GL_UNSIGNED_NORMALIZED
+    private static bool _blending;
     private static bool _backFaceCulling;
     private static PolygonMode _polygonMode = PolygonMode.Fill;
     private static Box2i _viewport;
@@ -33,6 +34,20 @@ public static class Renderer
             else
                 GL.Disable(EnableCap.DepthTest);
             _depthTesting = value;
+        }
+    }
+
+    public static bool Blending
+    {
+        get => _blending;
+        set
+        {
+            if (_blending == value) return;
+            if (value)
+                GL.Enable(EnableCap.Blend);
+            else
+                GL.Disable(EnableCap.Blend);
+            _blending = value;
         }
     }
 
@@ -70,6 +85,11 @@ public static class Renderer
             GL.Viewport(value.Min.X, value.Min.Y, value.Max.X, value.Max.Y);
             _viewport = value;
         }
+    }
+
+    public static void BlendingFunction(BlendingFactor sourceFactor, BlendingFactor destinationFactor)
+    {
+        GL.BlendFunc(sourceFactor, destinationFactor);
     }
 
     public static void Clear(ClearBufferMask clearBufferMask)

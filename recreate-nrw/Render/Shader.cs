@@ -1,5 +1,7 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using System.Text;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using recreate_nrw.Util;
 
 namespace recreate_nrw.Render;
 
@@ -9,12 +11,20 @@ public class Shader : IDisposable
 
     private int _handle;
     private readonly List<Uniform> _uniforms = new();
-    private readonly List<Texture> _textures = new();
+    private readonly List<TextureSlot> _textureSlots = new();
 
-    public Shader(string vertexPath, string fragmentPath)
+    public Shader(string name)
     {
-        var vertexShaderSource = File.ReadAllText(vertexPath);
-        var fragmentShaderSource = File.ReadAllText(fragmentPath);
+        var vertexShaderSource = Resources.GetCached($"Shaders/{name}.vert", Source.Embedded, stream =>
+        {
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            return reader.ReadToEnd();
+        });
+        var fragmentShaderSource = Resources.GetCached($"Shaders/{name}.frag", Source.Embedded, stream =>
+        {
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            return reader.ReadToEnd();
+        });
 
         var vertexShader = CreateAndCompileShader(ShaderType.VertexShader, vertexShaderSource);
         var fragmentShader = CreateAndCompileShader(ShaderType.FragmentShader, fragmentShaderSource);
@@ -25,6 +35,7 @@ public class Shader : IDisposable
         GL.DetachShader(_handle, fragmentShader);
         GL.DeleteShader(vertexShader);
         GL.DeleteShader(fragmentShader);
+        Resources.RegisterDisposable(this);
     }
 
     private static int CreateAndCompileShader(ShaderType shaderType, string shaderSource)
@@ -65,11 +76,17 @@ public class Shader : IDisposable
 
     public void AddUniform<T>(string name) where T : struct
     {
+        if (_uniforms.Find(uniform => uniform.Name == name) != null)
+            throw new ArgumentException(
+                $"There is already a uniform with the name '{name}' on this shader ({_handle}).");
         _uniforms.Add(new Uniform<T>(GetUniformLocation(name), name));
     }
 
     public void AddUniform<T>(string name, T initial) where T : struct
     {
+        if (_uniforms.Find(uniform => uniform.Name == name) != null)
+            throw new ArgumentException(
+                $"There is already a uniform with the name '{name}' on this shader ({_handle}).");
         _uniforms.Add(new Uniform<T>(GetUniformLocation(name), name, initial));
     }
 
@@ -79,9 +96,9 @@ public class Shader : IDisposable
         if (uniform == null) throw new MissingFieldException($"Uniform '{name}' could not be set as it was not registered in shader ({_handle}).");
         
         var typed = (Uniform<T>) uniform;
-        if (typed._data.Equals(value)) return;
-        typed._data = value;
-        typed._dirty = true;
+        if (typed.Data.Equals(value)) return;
+        typed.Data = value;
+        typed.Dirty = true;
     }
 
     public T GetUniform<T>(string name) where T : struct
@@ -90,14 +107,17 @@ public class Shader : IDisposable
         if (uniform == null) throw new MissingFieldException($"Uniform '{name}' could not be queried as it was not registered in shader ({_handle}).");
         
         var typed = (Uniform<T>) uniform;
-        return typed._data;
+        return typed.Data;
     }
 
-    public void AddTexture(string name, Texture texture)
+    public void AddTexture(string name, Texture? texture = null)
     {
-        var i = _textures.Count;
-        if (_textures.Count >= 16) throw new Exception($"Too many textures on Shader ({i + 1}/16)");
-        _textures.Add(texture);
+        var i = _textureSlots.Count;
+        if (_textureSlots.Count >= 16) throw new Exception($"Too many textures on Shader ({i + 1}/16)");
+        if (_textureSlots.Find(slot => slot.Name == name) != null)
+            throw new ArgumentException(
+                $"There is already a texture with the name '{name}' on this shader ({_handle}).");
+        _textureSlots.Add(new TextureSlot(name, texture));
         try
         {
             AddUniform(name, i);
@@ -107,6 +127,13 @@ public class Shader : IDisposable
             //TODO: give opengl objects names to print instead of handle (e.g. from file name)
             throw new ArgumentException($"Could not find requested texture '{name}' in shader ({_handle}).");
         }
+    }
+    
+    public void SetTexture(string name, Texture texture)
+    {
+        var textureSlot = _textureSlots.Find(slot => slot.Name == name);
+        if (textureSlot == null) throw new MissingFieldException($"Texture slot '{name}' could not be set as it was not registered in shader ({_handle}).");
+        textureSlot.Texture = texture;
     }
 
     public int GetAttribLocation(string attribName)
@@ -125,9 +152,9 @@ public class Shader : IDisposable
             uniform.Upload();
         }
         
-        for (var i = 0; i < _textures.Count; i++)
+        for (var i = 0; i < _textureSlots.Count; i++)
         {
-            _textures[i].Activate(i);
+            _textureSlots[i].Texture?.Activate(i);
         }
     }
 
@@ -136,9 +163,9 @@ public class Shader : IDisposable
         if (_activeInstance != this) return;
         _activeInstance = null;
         
-        foreach (var texture in _textures)
+        foreach (var texture in _textureSlots)
         {
-            texture.Deactivate();
+            texture.Texture?.Deactivate();
         }
         GL.UseProgram(0);
     }
@@ -177,9 +204,9 @@ public class Uniform<T> : Uniform where T : struct
 {
     private readonly int _handle;
 
-    public T _data;
+    public T Data;
 
-    public bool _dirty = true;
+    public bool Dirty = true;
 
     public Uniform(int handle, string name) : base(name)
     {
@@ -189,39 +216,51 @@ public class Uniform<T> : Uniform where T : struct
     public Uniform(int handle, string name, T initial) : base(name)
     {
         _handle = handle;
-        _data = initial;
+        Data = initial;
     }
 
     public override void Upload()
     {
-        if (!_dirty) return;
-        _dirty = false;
+        if (!Dirty) return;
+        Dirty = false;
         if (typeof(T) == typeof(int))
         {
-            GL.Uniform1(_handle, Convert.ToInt32(_data));
+            GL.Uniform1(_handle, Convert.ToInt32(Data));
         }
         else if (typeof(T) == typeof(float))
         {
-            GL.Uniform1(_handle, Convert.ToSingle(_data));
+            GL.Uniform1(_handle, Convert.ToSingle(Data));
         }
         else if (typeof(T) == typeof(Vector2))
         {
-            GL.Uniform2(_handle, (Vector2)Convert.ChangeType(_data, typeof(Vector2)));
+            GL.Uniform2(_handle, (Vector2)Convert.ChangeType(Data, typeof(Vector2)));
         }
         else if (typeof(T) == typeof(Vector3))
         {
-            GL.Uniform3(_handle, (Vector3)Convert.ChangeType(_data, typeof(Vector3)));
+            GL.Uniform3(_handle, (Vector3)Convert.ChangeType(Data, typeof(Vector3)));
         }
         else if (typeof(T) == typeof(Matrix3))
         {
-            var data = (Matrix3) Convert.ChangeType(_data, typeof(Matrix3));
+            var data = (Matrix3) Convert.ChangeType(Data, typeof(Matrix3));
             GL.UniformMatrix3(_handle, true, ref data);
         }
         else if (typeof(T) == typeof(Matrix4))
         {
-            var data = (Matrix4) Convert.ChangeType(_data, typeof(Matrix4));
+            var data = (Matrix4) Convert.ChangeType(Data, typeof(Matrix4));
             GL.UniformMatrix4(_handle, true, ref data);
         }
         else throw new NotSupportedException($"Uniform of type '{typeof(T).Name}' is not supported.");
+    }
+}
+
+public class TextureSlot
+{
+    public string Name { get; }
+    public Texture? Texture { get; set; }
+    
+    public TextureSlot(string name, Texture? texture)
+    {
+        Name = name;
+        Texture = texture;
     }
 }

@@ -1,4 +1,5 @@
 ﻿using OpenTK.Graphics.OpenGL4;
+using recreate_nrw.Util;
 
 namespace recreate_nrw.Render;
 
@@ -23,6 +24,7 @@ public class ShadedModel : IDisposable
         GL.CreateBuffers(1, out _vbo);
         GL.CreateBuffers(1, out _ebo);
         
+        //TODO: allow changing data
         GL.NamedBufferData(_vbo, _model.GetVertexSize * _model.VertexCount, _model.Vertices, BufferUsageHint.StaticDraw);
         GL.NamedBufferData(_ebo, _model.Indices.Length * sizeof(uint), _model.Indices, BufferUsageHint.StaticDraw);
 
@@ -42,6 +44,8 @@ public class ShadedModel : IDisposable
         GL.VertexArrayElementBuffer(_vao, _ebo);
         
         Shader.Deactivate();
+        
+        Resources.RegisterDisposable(this);
     }
 
     public void Draw()

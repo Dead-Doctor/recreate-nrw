@@ -93,7 +93,7 @@ public class TestScene
         model.AddVertexAttribute(new VertexAttribute("aNormal", VertexAttribType.Float, 3));
         model.AddVertexAttribute(new VertexAttribute("aUV", VertexAttribType.Float, 2));
 
-        _shader = new Shader("Shaders/shader.vert", "Shaders/shader.frag");
+        _shader = new Shader("shader");
         _shader.AddUniform<float>("time");
         _shader.AddUniform<Vector3>("lightPosView");
         _shader.AddUniform<Matrix3>("normalMat");
@@ -125,11 +125,5 @@ public class TestScene
             _shader.SetUniform("normalMat", new Matrix3(Matrix4.Transpose(_cubes[i].ModelMat.Inverted())) * new Matrix3(_camera.ViewMat));
             _cubes[i].Draw(_camera);
         }
-    }
-
-    public void OnUnload()
-    {
-        _shader.Dispose();
-        _shadedModel.Dispose();
     }
 }

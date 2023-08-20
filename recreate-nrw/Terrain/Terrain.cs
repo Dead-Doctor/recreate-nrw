@@ -7,7 +7,7 @@ using Buffer = System.Buffer;
 
 namespace recreate_nrw.Terrain;
 
-public class Terrain : IDisposable
+public class Terrain
 {
     private const int TileSize = Coordinate.TerrainTileSize;
 
@@ -62,7 +62,7 @@ public class Terrain : IDisposable
         
         Tile00 = _data.GetTile(new Vector2i(0, 0));
 
-        _shader = new Shader("Shaders/terrain.vert", "Shaders/terrain.frag");
+        _shader = new Shader("terrain");
         _shader.AddUniform<Vector2>("modelPos");
         _shader.AddUniform<Matrix4>("viewMat");
         _shader.AddUniform<Matrix4>("projectionMat");
@@ -74,8 +74,8 @@ public class Terrain : IDisposable
         
         _shader.AddTexture("tile00",
             Texture.Load("tile:tile00",
-                _ => new TextureData(data, TileSize, TileSize, PixelFormat.Red, PixelType.Float,
-                    SizedInternalFormat.R32f, TextureWrapMode.Repeat, false, true)));
+                () => new TextureDataBuffer(data, TileSize, TileSize, PixelFormat.Red, PixelType.Float,
+                    SizedInternalFormat.R32f, TextureWrapMode.ClampToEdge, false, true)));
 
         GenerateModel();
     }
@@ -122,7 +122,7 @@ public class Terrain : IDisposable
 
         _model = Model.FromArray(vertices, indices);
         _model.AddVertexAttribute(new VertexAttribute("aPosition", VertexAttribType.Float, 2));
-        _shadedModel?.Dispose();
+        if (_shadedModel != null) Resources.Dispose(_shadedModel);
         _shadedModel = new ShadedModel(_model, _shader);
     }
 
@@ -225,24 +225,5 @@ public class Terrain : IDisposable
         _data.Profiler?.ImGuiTree();
             
         ImGui.End();
-    }
-
-    private bool _disposedValue;
-
-    public void Dispose()
-    {
-        if (_disposedValue) return;
-        GC.SuppressFinalize(this);
-
-        _shadedModel?.Dispose();
-        _shader.Dispose();
-        _disposedValue = true;
-    }
-
-    // Finalizer may not be called at all
-    ~Terrain()
-    {
-        if (_disposedValue) return;
-        Console.WriteLine("GPU Resource leak! Did you forget to call Dispose() on Terrain?");
     }
 }

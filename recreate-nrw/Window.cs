@@ -6,6 +6,7 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
+using recreate_nrw.Foliage;
 using recreate_nrw.Render;
 using recreate_nrw.Terrain;
 using recreate_nrw.Util;
@@ -15,8 +16,7 @@ namespace recreate_nrw;
 public class Window : GameWindow
 {
     private bool _vsync = true;
-    
-    private readonly Heightmap _heightmap;
+
     private readonly TerrainModel _terrainModel;
 
     // = null! equivalent to Kotlin's lateinit
@@ -29,7 +29,8 @@ public class Window : GameWindow
     private bool _renderTerrainModel = false;
 
     private Terrain.Terrain _terrain = null!;
-
+    private Fern _fern = null!;
+    
     private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
     public bool Debug;
 
@@ -40,9 +41,9 @@ public class Window : GameWindow
     )
     {
         VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
-        _heightmap = new Heightmap(new Vector2i(347, 5673));
-        _heightmap.LoadTile(new Vector2i(0, 0));
-        _terrainModel = new TerrainModel(_heightmap, new Vector2i(0, 0), 1000u);
+        var heightmap = new Heightmap(new Vector2i(347, 5673));
+        heightmap.LoadTile(new Vector2i(0, 0));
+        _terrainModel = new TerrainModel(heightmap, new Vector2i(0, 0), 1000u);
     }
 
     /// <summary>
@@ -61,12 +62,13 @@ public class Window : GameWindow
         Renderer.ClearColor = new Color4(0.2f, 0.3f, 0.3f, 1.0f);
         Renderer.DepthTesting = true;
         Renderer.BackFaceCulling = true;
+        Renderer.BlendingFunction(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
         _controller = new ImGuiController(ClientSize.X, ClientSize.Y);
 
         _camera = new Camera(Size, new Vector3(0.0f, 100.0f, 0.0f));
         _controls = new Controls(this);
 
-        _terrainModelShader = new Shader("Shaders/terrainModel.vert", "Shaders/terrainModel.frag");
+        _terrainModelShader = new Shader("terrainModel");
         _terrainModelShader.AddUniform<Matrix4>("modelViewMat");
         _terrainModelShader.AddUniform<Matrix4>("projectionMat");
         _terrainModelShader.AddUniform("lightDir", _lightDir);
@@ -79,6 +81,7 @@ public class Window : GameWindow
         _shadedTerrainModel = new ShadedModel(_terrainModel.Model, _terrainModelShader);
 
         _terrain = new Terrain.Terrain(_lightDir);
+        _fern = new Fern();
 
         // _scene = new TestScene(_camera);
     }
@@ -112,12 +115,31 @@ public class Window : GameWindow
 
         ImGui.ShowDemoWindow();
         _terrain.Window();
+        _fern.Draw();
         InfoWindow();
 
         _controller.Render();
         ImGuiController.CheckGLError("End of frame");
 
         SwapBuffers();
+    }
+
+    private int _frameCount;
+    private double _timeSinceLastFpsUpdate;
+    private double _fps;
+
+    protected override void OnUpdateFrame(FrameEventArgs e)
+    {
+        base.OnUpdateFrame(e);
+        _controls.Update(e.Time, _camera);
+        _controller.Update(this, (float) e.Time);
+        
+        _frameCount++;
+        _timeSinceLastFpsUpdate += e.Time;
+        if (_timeSinceLastFpsUpdate < 1.0) return;
+        _fps = _frameCount / _timeSinceLastFpsUpdate;
+        _frameCount = 0;
+        _timeSinceLastFpsUpdate = 0.0;
     }
 
     private void InfoWindow()
@@ -177,24 +199,6 @@ public class Window : GameWindow
         return result;
     }
 
-    private int _frameCount;
-    private double _timeSinceLastFpsUpdate;
-    private double _fps;
-
-    protected override void OnUpdateFrame(FrameEventArgs e)
-    {
-        base.OnUpdateFrame(e);
-        _controls.Update(e.Time, _camera);
-        _controller.Update(this, (float) e.Time);
-        
-        _frameCount++;
-        _timeSinceLastFpsUpdate += e.Time;
-        if (_timeSinceLastFpsUpdate < 1.0) return;
-        _fps = _frameCount / _timeSinceLastFpsUpdate;
-        _frameCount = 0;
-        _timeSinceLastFpsUpdate = 0.0;
-    }
-
     protected override void OnResize(ResizeEventArgs e)
     {
         base.OnResize(e);
@@ -226,12 +230,7 @@ public class Window : GameWindow
     {
         base.OnUnload();
         // _scene.OnUnload();
-        _terrainModelShader.Dispose();
-        _shadedTerrainModel.Dispose();
-
-        _terrain.Dispose();
-
-        Texture.DisposeAll();
+        Resources.DisposeAll();
     }
 
     //TODO: push pop debug group (error handler (logger class))

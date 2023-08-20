@@ -37,8 +37,8 @@ public class TerrainModel
                 {
                     var i = ((worldZ * (size - 1) + worldX) * 2 + 0) * 3;
                     indices[i + 0] = Index(topLeft);
-                    indices[i + 1] = Index(topRight);
-                    indices[i + 2] = Index(bottomRight);
+                    indices[i + 1] = Index(bottomRight);
+                    indices[i + 2] = Index(topRight);
                     var normal = Vector3.Cross(
                         heightmap[bottomRight] - heightmap[topLeft],
                         heightmap[topRight] - heightmap[topLeft]
@@ -50,8 +50,8 @@ public class TerrainModel
                 {
                     var i = ((worldZ * (size - 1) + worldX) * 2 + 1) * 3;
                     indices[i + 0] = Index(topLeft);
-                    indices[i + 1] = Index(bottomRight);
-                    indices[i + 2] = Index(bottomLeft);
+                    indices[i + 1] = Index(bottomLeft);
+                    indices[i + 2] = Index(bottomRight);
                     var normal = Vector3.Cross(
                         heightmap[bottomLeft] - heightmap[topLeft],
                         heightmap[bottomRight] - heightmap[topLeft]

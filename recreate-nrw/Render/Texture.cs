@@ -1,71 +1,63 @@
 ﻿using OpenTK.Graphics.OpenGL4;
+using recreate_nrw.Util;
 using StbImageSharp;
 
 namespace recreate_nrw.Render;
 
-public class Texture : IDisposable
+public abstract class Texture
 {
-    private static Texture?[] _activeInstances = new Texture?[TextureUnit.Texture31 - TextureUnit.Texture0 + 1];
+    private static readonly Texture?[] ActiveInstances = new Texture?[TextureUnit.Texture31 - TextureUnit.Texture0 + 1];
+    
+    public static Texture Load(string id, LazyTextureData source) =>
+        Resources.GetCached(id, Source.Memory, _ => new StaticTexture(source()));
 
-    private readonly int _handle;
-
-    private static readonly Dictionary<string, Texture> LoadedTextures = new();
-
-    public static Texture Load(string id, Func<string, TextureData> source)
-    {
-        if (LoadedTextures.TryGetValue(id, out var texture)) return texture;
-
-        var loadedTexture = new Texture(source(id));
-
-        LoadedTextures.Add(id, loadedTexture);
-        return loadedTexture;
-    }
-
-    //TODO: Resource Manager (https://stackoverflow.com/questions/3314140/how-to-read-embedded-resource-text-file)
-    public static Texture LoadImageFile(string texturePath) =>
-        Load($"data:{texturePath}", ReadImageFile);
-
-    private static TextureData ReadImageFile(string texturePath)
-    {
-        if (!texturePath.StartsWith("data:"))
-            throw new ArgumentException($"Image file ids have to start with 'data:'. Tried to load: {texturePath}");
-        texturePath = texturePath["data:".Length..];
-
-        StbImage.stbi_set_flip_vertically_on_load(1);
-
-        using var stream = File.OpenRead(texturePath) ??
-                           throw new ArgumentNullException($"Could'nt load texture file: {texturePath}");
-        var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
-
-        var format = image.Comp switch
+    public static Texture LoadImageFile(string texturePath) => Load(texturePath, () =>
+        Resources.GetCached(texturePath, Source.WorkingDirectory, stream =>
         {
-            ColorComponents.Default => throw new ArgumentException(
-                "Tried to load texture with color components: Default."),
-            ColorComponents.Grey => PixelFormat.Luminance,
-            ColorComponents.GreyAlpha => PixelFormat.LuminanceAlpha,
-            ColorComponents.RedGreenBlue => PixelFormat.Rgb,
-            ColorComponents.RedGreenBlueAlpha => PixelFormat.Rgba,
-            _ => throw new ArgumentOutOfRangeException(image.Comp.ToString())
-        };
+            StbImage.stbi_set_flip_vertically_on_load(1);
 
+            var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 
-        return new TextureData(image.Data, image.Width, image.Height, format, PixelType.UnsignedByte,
-            SizedInternalFormat.Rgba8, TextureWrapMode.Repeat, false, true);
+            var format = image.Comp switch
+            {
+                ColorComponents.Default => throw new ArgumentException(
+                    "Tried to load texture with color components: Default."),
+                ColorComponents.Grey => PixelFormat.Luminance,
+                ColorComponents.GreyAlpha => PixelFormat.LuminanceAlpha,
+                ColorComponents.RedGreenBlue => PixelFormat.Rgb,
+                ColorComponents.RedGreenBlueAlpha => PixelFormat.Rgba,
+                _ => throw new ArgumentOutOfRangeException(image.Comp.ToString())
+            };
+
+            return new TextureDataBuffer(image.Data, image.Width, image.Height, format, PixelType.UnsignedByte,
+                SizedInternalFormat.Rgba8, TextureWrapMode.Repeat, false, true);
+        }));
+
+    public void Activate(int i)
+    {
+        if (ActiveInstances[i] == this) return;
+        ActiveInstances[i] = this;
+        GL.BindTextureUnit(i, GetHandle());
     }
 
-    public static void DisposeAll()
+    public void Deactivate()
     {
-        foreach (var texture in LoadedTextures)
-        {
-            texture.Value.Dispose();
-        }
-
-        LoadedTextures.Clear();
+        var i = Array.IndexOf(ActiveInstances, this);
+        if (i == -1) return;
+        ActiveInstances[i] = null;
+        GL.BindTextureUnit(i, 0);
     }
 
-    private Texture(TextureData textureData)
+    protected abstract int GetHandle();
+}
+
+public class StaticTexture : Texture, IDisposable
+{
+    public readonly int Handle;
+    
+    public StaticTexture(ITextureData textureData)
     {
-        GL.CreateTextures(TextureTarget.Texture2D, 1, out _handle);
+        GL.CreateTextures(TextureTarget.Texture2D, 1, out Handle);
 
         var minFilter = textureData.NearestFiltering
             ? textureData.Mipmaps ? TextureMinFilter.NearestMipmapNearest : TextureMinFilter.Nearest
@@ -74,54 +66,34 @@ public class Texture : IDisposable
                 : TextureMinFilter.Linear;
         var magFilter = textureData.NearestFiltering ? TextureMagFilter.Nearest : TextureMagFilter.Linear;
 
-        GL.TextureParameter(_handle, TextureParameterName.TextureMinFilter, (int) minFilter);
-        GL.TextureParameter(_handle, TextureParameterName.TextureMagFilter, (int) magFilter);
+        GL.TextureParameter(Handle, TextureParameterName.TextureMinFilter, (int) minFilter);
+        GL.TextureParameter(Handle, TextureParameterName.TextureMagFilter, (int) magFilter);
 
-        GL.TextureParameter(_handle, TextureParameterName.TextureWrapS, (int) textureData.WrapMode);
-        GL.TextureParameter(_handle, TextureParameterName.TextureWrapT, (int) textureData.WrapMode);
+        GL.TextureParameter(Handle, TextureParameterName.TextureWrapS, (int) textureData.WrapMode);
+        GL.TextureParameter(Handle, TextureParameterName.TextureWrapT, (int) textureData.WrapMode);
 
         var levels = 1;
         if (textureData.Mipmaps)
-            levels += (int)Math.Floor(Math.Log2(Math.Max(textureData.Width, textureData.Height)));
-        
-        GL.TextureStorage2D(_handle, levels, textureData.InternalFormat, textureData.Width, textureData.Height);
-        GL.TextureSubImage2D(_handle, 0, 0, 0, textureData.Width, textureData.Height, textureData.Format,
-            textureData.Type, textureData.Data);
+            levels += (int) Math.Floor(Math.Log2(Math.Max(textureData.Width, textureData.Height)));
+
+        GL.TextureStorage2D(Handle, levels, textureData.InternalFormat, textureData.Width, textureData.Height);
+        if (textureData is TextureDataBuffer textureDataBuffer)
+        {
+            GL.TextureSubImage2D(Handle, 0, 0, 0, textureDataBuffer.Width, textureDataBuffer.Height,
+                textureDataBuffer.Format,
+                textureDataBuffer.Type, textureDataBuffer.Data);
+        }
 
         if (textureData.Mipmaps)
-            GL.GenerateTextureMipmap(_handle);
-
-        /*_handle = GL.GenTexture();
-        Activate();
-
-        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, textureData.Width, textureData.Height, 0,
-            textureData.Format, textureData.Type, textureData.Data);
-        
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-        
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-        
-        GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
-        
-        Deactivate();*/
+            GenerateMipmap();
     }
 
-    public void Activate(int i)
+    public void GenerateMipmap()
     {
-        if (_activeInstances[i] == this) return;
-        _activeInstances[i] = this;
-        GL.BindTextureUnit(i, _handle);
+        GL.GenerateTextureMipmap(Handle);
     }
 
-    public void Deactivate()
-    {
-        var i = Array.IndexOf(_activeInstances, this);
-        if (i == -1) return;
-        _activeInstances[i] = null;
-        GL.BindTextureUnit(i, _handle);
-    }
+    protected override int GetHandle() => Handle;
 
     private bool _disposedValue;
 
@@ -130,17 +102,32 @@ public class Texture : IDisposable
         if (_disposedValue) return;
         GC.SuppressFinalize(this);
 
-        GL.DeleteTexture(_handle);
+        GL.DeleteTexture(Handle);
         _disposedValue = true;
     }
 
     // Finalizer may not be called at all
-    ~Texture()
+    ~StaticTexture()
     {
         if (_disposedValue) return;
         Console.WriteLine("GPU Resource leak! Did you forget to call Dispose() on Texture?");
     }
 }
 
-public readonly record struct TextureData(byte[] Data, int Width, int Height, PixelFormat Format, PixelType Type,
-    SizedInternalFormat InternalFormat, TextureWrapMode WrapMode, bool NearestFiltering, bool Mipmaps);
+public delegate ITextureData LazyTextureData();
+
+public interface ITextureData
+{
+    int Width { get; }
+    int Height { get; }
+    SizedInternalFormat InternalFormat { get; }
+    TextureWrapMode WrapMode { get; }
+    bool NearestFiltering { get; }
+    bool Mipmaps { get; }
+}
+
+public readonly record struct TextureDataFramebufferAttachment(int Width, int Height,
+    SizedInternalFormat InternalFormat, TextureWrapMode WrapMode, bool NearestFiltering, bool Mipmaps) : ITextureData;
+
+public readonly record struct TextureDataBuffer(byte[] Data, int Width, int Height, PixelFormat Format, PixelType Type,
+    SizedInternalFormat InternalFormat, TextureWrapMode WrapMode, bool NearestFiltering, bool Mipmaps) : ITextureData;
