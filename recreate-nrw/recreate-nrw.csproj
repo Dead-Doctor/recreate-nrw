@@ -20,6 +20,12 @@
     </ItemGroup>
 
     <ItemGroup>
+      <EmbeddedResource Include="Shaders\foliage.frag">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </EmbeddedResource>
+      <EmbeddedResource Include="Shaders\foliage.vert">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </EmbeddedResource>
       <EmbeddedResource Include="Shaders\shader.frag">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </EmbeddedResource>

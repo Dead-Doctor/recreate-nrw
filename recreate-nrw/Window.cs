@@ -29,6 +29,7 @@ public class Window : GameWindow
 
     private Terrain.Terrain _terrain = null!;
     private Fern _fern = null!;
+    private Grass _grass = null!;
     
     private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
     public bool Debug;
@@ -81,6 +82,7 @@ public class Window : GameWindow
 
         _terrain = new Terrain.Terrain(_lightDir);
         _fern = new Fern();
+        _grass = new Grass();
 
         // _scene = new TestScene(_camera);
     }
@@ -105,6 +107,9 @@ public class Window : GameWindow
         {
             _terrain.Draw(_camera);
         }
+        
+        _grass.Draw(_camera);
+        // _fern.Draw();
 
         if (Debug)
             Renderer.PolygonMode = PolygonMode.Fill;
@@ -114,7 +119,7 @@ public class Window : GameWindow
 
         ImGui.ShowDemoWindow();
         _terrain.Window();
-        _fern.Draw();
+        _grass.Window();
         InfoWindow();
 
         _controller.Render();
