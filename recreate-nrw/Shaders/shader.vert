@@ -1,4 +1,5 @@
 ﻿#version 460 core
+
 in vec3 aPosition;
 in vec3 aNormal;
 in vec2 aUV;
