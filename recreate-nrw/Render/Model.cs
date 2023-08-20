@@ -9,6 +9,7 @@ public class Model
     public readonly List<VertexAttribute> VertexAttributes = new();
     public readonly uint[] Indices;
 
+    //TODO: load from file (using resource manager)
     public static Model FromArray<T>(T[] vertices, uint[] indices)
     {
         var bytes = new byte[Buffer.ByteLength(vertices)];
@@ -22,7 +23,16 @@ public class Model
         Indices = indices;
     }
 
-    public int VertexCount => sizeof(byte) * Vertices.Length / GetVertexSize;
+    public int VertexCount
+    {
+        get
+        {
+            if (GetVertexSize == 0)
+                throw new ArgumentException(
+                    "Could not calculate vertex count because vertex size is 0. Maybe forgot to define vertex attributes?");
+            return sizeof(byte) * Vertices.Length / GetVertexSize;
+        }
+    }
 
     public int GetVertexSize => VertexAttributes.Sum(a => a.GetSize());
 
