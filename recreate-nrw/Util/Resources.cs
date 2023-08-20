@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using JetBrains.Annotations;
 
 namespace recreate_nrw.Util;
 
@@ -7,6 +8,7 @@ public static class Resources
     private static readonly Dictionary<string, object> Cache = new();
     private static readonly List<IDisposable> Disposables = new();
 
+    [PublicAPI]
     public static T GetCached<T>(string path, Source source, Func<Stream, T> parser)
     {
         var key = $"{typeof(T)}:{path}";
@@ -17,9 +19,10 @@ public static class Resources
         return value;
     }
 
+    [PublicAPI]
     public static T Get<T>(string path, Source source, Func<Stream, T> parser)
     {
-        var stream = source switch
+        using var stream = source switch
         {
             Source.Memory => Stream.Null,
             Source.Embedded => Assembly.GetExecutingAssembly()
@@ -31,7 +34,6 @@ public static class Resources
         };
 
         var value = parser(stream);
-        stream.Dispose();
         return value;
     }
 
@@ -46,7 +48,11 @@ public static class Resources
 
         Disposables.Clear();
     }
-
+    
+    /// <summary>
+    /// This does not remove the object from the cache!!!
+    /// </summary>
+    /// <param name="disposable">Object to dispose.</param>
     public static void Dispose(IDisposable disposable)
     {
         Disposables.Remove(disposable);
