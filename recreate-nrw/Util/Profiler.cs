@@ -84,6 +84,13 @@ public class Profiler
             _endTime = elapsed;
         }
 
+        private string GetRunningTask()
+        {
+            if (_subProcessNodes.Count <= 0) return _name;
+            var lastProcess = _subProcessNodes.Last();
+            return lastProcess.Stopped() ? _name : lastProcess.GetRunningTask();
+        }
+
         private TimeSpan TotalTime() => (TimeSpan) (_endTime! - _startTime);
         private TimeSpan TotalTimeInSubprocess() => new(_subProcessNodes.Sum(node => node.TotalTime().Ticks));
 
@@ -101,7 +108,7 @@ public class Profiler
         private string DurationString() =>
             Stopped()
                 ? $"{FormatDuration(TotalTime())} ({FormatDuration(TotalTime() - TotalTimeInSubprocess())})"
-                : "Running...";
+                : $"Running... ({GetRunningTask()})";
 
         public bool Stopped() => _endTime != null;
 
