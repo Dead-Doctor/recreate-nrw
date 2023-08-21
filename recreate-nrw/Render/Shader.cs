@@ -70,7 +70,7 @@ public class Shader : IDisposable
     {
         var location = GL.GetUniformLocation(_handle, name);
         if (location == -1)
-            throw new ArgumentException($"Could not find requested uniform '{name}' in shader ({_handle}).");
+            throw new ArgumentException($"Could not find requested uniform '{name}' in shader ({_handle}). Maybe uniform got optimized away!!!!!!");
         return location;
     }
 
