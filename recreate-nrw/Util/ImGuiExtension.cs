@@ -11,7 +11,7 @@ public static class ImGuiExtension
         Process.Start(new ProcessStartInfo(url) {UseShellExecute = true});
     }
 
-    public static bool ImGuiVector2(string label, Vector2 value, out Vector2 newValue)
+    public static bool Vector2(string label, Vector2 value, out Vector2 newValue)
     {
         var vec = new System.Numerics.Vector2(value.X, value.Y);
         var result = ImGui.DragFloat2(label, ref vec);
@@ -19,7 +19,7 @@ public static class ImGuiExtension
         return result;
     }
 
-    public static bool ImGuiVector3(string label, Vector3 value, out Vector3 newValue)
+    public static bool Vector3(string label, Vector3 value, out Vector3 newValue)
     {
         var pos = new System.Numerics.Vector3(value.X, value.Y, value.Z);
         var result = ImGui.DragFloat3(label, ref pos);

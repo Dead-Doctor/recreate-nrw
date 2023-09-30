@@ -59,7 +59,8 @@ public class Framebuffer : Texture, IDisposable
         if (_disposedValue) return;
         GC.SuppressFinalize(this);
         GL.DeleteFramebuffer(_handle);
-
+        //TODO: delete non-needed texture attachments (check for similar problems in other classes)
+        
         _disposedValue = true;
     }
 

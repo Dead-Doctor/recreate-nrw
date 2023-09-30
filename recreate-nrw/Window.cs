@@ -155,11 +155,11 @@ public class Window : GameWindow
         if (ImGui.Checkbox("VSync", ref _vsync))
             VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
         
-        if (ImGuiExtension.ImGuiVector3("Position", _camera.Position, out var newPosition))
+        if (ImGuiExtension.Vector3("Position", _camera.Position, out var newPosition))
             _camera.Position = newPosition;
 
         var terrainData = Coordinate.World(_camera.Position).Epsg25832();
-        if (ImGuiExtension.ImGuiVector2("EPSG:25832", terrainData, out var newCoordinates))
+        if (ImGuiExtension.Vector2("EPSG:25832", terrainData, out var newCoordinates))
             _camera.Position = Coordinate.Epsg25832(newCoordinates, _camera.Position.Y).World();
         
         var dataTile = Coordinate.World(_camera.Position).TerrainDataIndex();

@@ -57,11 +57,11 @@ public class Grass
     public void Window()
     {
         ImGui.Begin("Grass");
-        if (ImGuiExtension.ImGuiVector2("Offset", _offset, out _offset))
+        if (ImGuiExtension.Vector2("Offset", _offset, out _offset))
             _shader.SetUniform("aOffset", _offset);
         if (ImGui.SliderAngle("Rotation", ref _rotation))
             _shader.SetUniform("aRotation", _rotation);
-        if (ImGuiExtension.ImGuiVector3("Surface Normal", _surfaceNormal, out _surfaceNormal))
+        if (ImGuiExtension.Vector3("Surface Normal", _surfaceNormal, out _surfaceNormal))
         {
             _surfaceNormal.Normalize();
             _shader.SetUniform("surfaceNormal", _surfaceNormal);
