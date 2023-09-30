@@ -52,15 +52,17 @@ public class Terrain
             _chunks = 4 * (1 + 3 * _LODs);
         }
     }
-
-    public readonly Tile Tile00;
+    
+    private int _left;
+    private int _right;
+    private int _top;
+    private int _bottom;
+    private readonly LoadedTile?[] _loadedTiles = new LoadedTile?[4];
 
     public Terrain(Vector3 lightDir)
     {
         RenderDistance = 512;
         _lightDir = lightDir;
-        
-        Tile00 = _data.GetTile(new Vector2i(0, 0));
 
         _shader = new Shader("terrain");
         _shader.AddUniform<Vector2>("modelPos");
@@ -69,14 +71,13 @@ public class Terrain
         _shader.AddUniform("n", N);
         _shader.AddUniform("lightDir", _lightDir);
 
-        var data = new byte[TileSize * TileSize * 4];
-        Buffer.BlockCopy(Tile00.Data, 0, data, 0, data.Length);
+        for (var i = 0; i < _loadedTiles.Length; i++)
+        {
+            _shader.AddUniform<Vector2>($"tiles[{i}].pos");
+            _shader.AddTexture($"tiles[{i}].data");
+        }
+        SwitchTiles(0.0f, 0.0f);
         
-        _shader.AddTexture("tile00",
-            Texture.Load("tile:tile00",
-                () => new TextureDataBuffer(data, TileSize, TileSize, PixelFormat.Red, PixelType.Float,
-                    SizedInternalFormat.R32f, TextureWrapMode.ClampToEdge, false, true)));
-
         GenerateModel();
     }
 
@@ -125,29 +126,10 @@ public class Terrain
         if (_shadedModel != null) Resources.Dispose(_shadedModel);
         _shadedModel = new ShadedModel(_model, _shader);
     }
-
-    private float _left = -1.0f;
-    private float _right = +1.0f;
-    private float _top = -1.0f;
-    private float _bottom = +1.0f;
-
-    private Vector2 _tile0 = new(0.0f, 0.0f);
-    private Vector2 _tile1 = new(-1.0f, 0.0f);
-    private Vector2 _tile2 = new(0.0f, -1.0f);
-    private Vector2 _tile3 = new(-1.0f, -1.0f);
-
+    
     public void Draw(Camera camera)
     {
-        var xTileSpace = camera.Position.X / TileSize;
-        var zTileSpace = camera.Position.Z / TileSize;
-
-        if (xTileSpace < _left + 0.375) Update(xTileSpace, zTileSpace);
-        else if (xTileSpace > _right - 0.375) Update(xTileSpace, zTileSpace);
-
-        if (zTileSpace < _top + 0.375) Update(xTileSpace, zTileSpace);
-        else if (zTileSpace > _bottom - 0.375) Update(xTileSpace, zTileSpace);
-
-        var offset = -camera.Position.Xz.Modulo(_biggestSquares);
+        var offset = new Vector2(_biggestSquares / 2.0f) - camera.Position.Xz.Modulo(_biggestSquares);
         var eye = new Vector3(-offset.X, camera.Position.Y, -offset.Y);
         var viewMat = Matrix4.LookAt(eye, eye + camera.Front, camera.Up);
         var modelPos = camera.Position.Xz + offset;
@@ -158,42 +140,50 @@ public class Terrain
         _shadedModel!.DrawInstanced(_chunks);
     }
 
-    private void Update(float x, float z)
+    public void Update(Camera camera)
     {
-        var tileXLower = (float) Math.Floor(x - 0.5f);
-        var tileZLower = (float) Math.Floor(z - 0.5f);
-        var tileXUpper = tileXLower + 1.0f;
-        var tileZUpper = tileZLower + 1.0f;
+        var xTileSpace = camera.Position.X / TileSize;
+        var zTileSpace = camera.Position.Z / TileSize;
 
-        _left = tileXLower;
-        _right = tileXUpper + 1.0f;
-        _top = tileZLower;
-        _bottom = tileZUpper + 1.0f;
+        if (xTileSpace < _left + 0.375f) SwitchTiles(xTileSpace, zTileSpace);
+        else if (xTileSpace > _right - 0.375f) SwitchTiles(xTileSpace, zTileSpace);
 
-        Load(new Vector2(tileXLower, tileZLower));
-        Load(new Vector2(tileXUpper, tileZLower));
-        Load(new Vector2(tileXUpper, tileZUpper));
-        Load(new Vector2(tileXLower, tileZUpper));
+        if (zTileSpace < _top + 0.375f) SwitchTiles(xTileSpace, zTileSpace);
+        else if (zTileSpace > _bottom - 0.375f) SwitchTiles(xTileSpace, zTileSpace);
     }
 
-    private void Load(Vector2 tile)
+    private void SwitchTiles(float x, float z)
     {
-        var index = tile.Y % 2.0 * 2.0 + tile.X % 2.0;
-        switch (index)
+        var tileXLower = (int) Math.Floor(x - 0.5f);
+        var tileZLower = (int) Math.Floor(z - 0.5f);
+        var tileXUpper = tileXLower + 1;
+        var tileZUpper = tileZLower + 1;
+
+        _left = tileXLower;
+        _right = tileXUpper + 1;
+        _top = tileZLower;
+        _bottom = tileZUpper + 1;
+
+        Load(new Vector2i(tileXLower, tileZLower));
+        Load(new Vector2i(tileXUpper, tileZLower));
+        Load(new Vector2i(tileXUpper, tileZUpper));
+        Load(new Vector2i(tileXLower, tileZUpper));
+    }
+
+    private void Load(Vector2i tilePos)
+    {
+        var i = tilePos.Y.Modulo(2) * 2 + tilePos.X.Modulo(2);
+        var previous = _loadedTiles[i];
+        if (previous != null)
         {
-            case 0:
-                _tile0 = tile;
-                break;
-            case 1:
-                _tile1 = tile;
-                break;
-            case 2:
-                _tile2 = tile;
-                break;
-            case 3:
-                _tile3 = tile;
-                break;
+            if (previous.Pos == tilePos) return;
+            previous.Unload();
         }
+        var next = new LoadedTile(_data, tilePos);
+        
+        _loadedTiles[i] = next;
+        _shader.SetUniform($"tiles[{i}].pos", tilePos.ToVector2());
+        _shader.SetTexture($"tiles[{i}].data", next.Texture);
     }
 
     public void Window()
@@ -218,12 +208,41 @@ public class Terrain
         var naiveTriangleCount = actualRenderDistance * actualRenderDistance * 4 * 2;
         ImGui.Text(
             $"Total Triangles: {triangleCount / 1000}K/{naiveTriangleCount / 1000}K ({(int) ((float) triangleCount / naiveTriangleCount * 100.0f)}%%)");
-
-        ImGui.Text($"X: {_left} - {_right}");
-        ImGui.Text($"Z: {_top} - {_bottom}");
-
+        
+        //TODO: Create Window() method in TerrainData.cs
         _data.Profiler?.ImGuiTree();
             
         ImGui.End();
+    }
+
+    private record LoadedTile
+    {
+        public readonly Vector2i Pos;
+        public readonly StaticTexture Texture;
+
+        public LoadedTile(TerrainData data, Vector2i pos)
+        {
+            Pos = pos;
+
+            var buffer = new byte[TileSize * TileSize * 4];
+            Buffer.BlockCopy(data.GetTile(pos), 0, buffer, 0, buffer.Length);
+
+            Texture = new StaticTexture(new TextureDataBuffer(buffer, TileSize, TileSize, PixelFormat.Red, PixelType.Float,
+                SizedInternalFormat.R32f, TextureWrapMode.ClampToEdge, false, false));
+            
+            // Export as grayscale heightmap
+            /*var path = $"Debug/tile_{Pos.X}_{Pos.Y}.pgm";
+            using var stream = File.OpenWrite(path);
+            stream.Write(Encoding.ASCII.GetBytes($"P5 {TileSize} {TileSize} {byte.MaxValue}\n"));
+            foreach (var height in data.GetTile(pos))
+            {
+                stream.WriteByte((byte)((height / 100.0 - 30.0)*8.0));
+            }*/
+        }
+    
+        public void Unload()
+        {
+            Resources.Dispose(Texture);
+        }
     }
 }

@@ -25,23 +25,28 @@ public class TerrainData
     private const int TileSize = Coordinate.TerrainTileSize;
     private const int TileArea = TileSize * TileSize;
 
-    private Dictionary<Vector2i, int[]> _data = new();
-    private Dictionary<Vector2i, Tile> _tiles = new();
-    private List<Vector2i> _savedTiles = new();
+    private readonly Dictionary<Vector2i, int[]> _data = new();
+    private readonly Dictionary<Vector2i, float[]> _tiles = new();
+    private readonly List<Vector2i> _savedTiles = new();
     
     public Profiler? Profiler;
 
-    public Tile GetTile(Vector2i pos)
+    public float[] GetTile(Vector2i pos)
     {
         Profiler = new Profiler("GetTile");
 
         // Check loaded
-        if (_tiles.TryGetValue(pos, out var tile)) return tile;
+        if (_tiles.TryGetValue(pos, out var tile))
+        {
+            Profiler.StopProfiler(/*GetTile*/);
+            return tile;
+        }
 
         // Check hard drive
         if (_savedTiles.Contains(pos))
         {
             //TODO: tile = ReadTile(pos);
+            tile = null!;
         }
         else
         {
@@ -54,11 +59,11 @@ public class TerrainData
 
         _tiles.Add(pos, tile);
 
-        Profiler.StopProfiler();
+        Profiler.StopProfiler(/*GetTile*/);
         return tile;
     }
 
-    private Tile CreateTile(Vector2i pos)
+    private float[] CreateTile(Vector2i pos)
     {
         Profiler?.Start("CreateTile");
         //TODO: check if still works if any variable negative
@@ -93,7 +98,7 @@ public class TerrainData
         }
 
         Profiler?.Stop( /*CreateTile*/);
-        return new Tile(pos, tile);
+        return tile;
     }
 
     private static int OffsetInDataTile(int pos)
@@ -102,7 +107,7 @@ public class TerrainData
     }
 
     private int[] GetData(Vector2i tile) => _data.TryGetValue(tile, out var data) ? data : LoadData(tile);
-    
+
     /// <summary>
     /// Time (avg for 9x, changes additional to previous):
     /// Line by line: 242ms
@@ -170,10 +175,7 @@ public class TerrainData
                     data[y + lineI % 1000] = height;
                 }
             }
-
             Profiler?.Stop( /*Read lines*/);
-
-            _data.Add(tile, data);
         }
         catch (FileNotFoundException)
         {
@@ -182,19 +184,8 @@ public class TerrainData
         }
 
         Profiler?.Stop( /*LoadData*/);
+
+        _data.Add(tile, data);
         return data;
-    }
-}
-
-//GL_R32
-public readonly struct Tile
-{
-    public readonly Vector2i Pos;
-    public readonly float[] Data;
-
-    public Tile(Vector2i pos, float[] data)
-    {
-        Pos = pos;
-        Data = data;
     }
 }

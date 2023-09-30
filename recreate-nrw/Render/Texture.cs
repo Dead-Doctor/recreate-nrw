@@ -1,4 +1,5 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using JetBrains.Annotations;
+using OpenTK.Graphics.OpenGL4;
 using recreate_nrw.Util;
 using StbImageSharp;
 
@@ -8,10 +9,12 @@ public abstract class Texture
 {
     private static readonly Texture?[] ActiveInstances = new Texture?[TextureUnit.Texture31 - TextureUnit.Texture0 + 1];
     
+    [PublicAPI]
     public static Texture Load(string id, LazyTextureData source) =>
         Resources.GetCached(id, Source.Memory, _ => new StaticTexture(source()));
 
-    public static Texture LoadImageFile(string texturePath) => Load(texturePath, () =>
+    [PublicAPI]
+    public static Texture LoadImageFile(string texturePath, TextureWrapMode textureWrapMode = TextureWrapMode.Repeat) => Load(texturePath, () =>
         Resources.GetCached(texturePath, Source.WorkingDirectory, stream =>
         {
             StbImage.stbi_set_flip_vertically_on_load(1);
@@ -30,7 +33,7 @@ public abstract class Texture
             };
 
             return new TextureDataBuffer(image.Data, image.Width, image.Height, format, PixelType.UnsignedByte,
-                SizedInternalFormat.Rgba8, TextureWrapMode.Repeat, false, true);
+                SizedInternalFormat.Rgba8, textureWrapMode, false, true);
         }));
 
     public void Activate(int i)
@@ -86,6 +89,8 @@ public class StaticTexture : Texture, IDisposable
 
         if (textureData.Mipmaps)
             GenerateMipmap();
+        
+        Resources.RegisterDisposable(this);
     }
 
     public void GenerateMipmap()

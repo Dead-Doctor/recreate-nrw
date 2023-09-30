@@ -50,6 +50,16 @@
       <EmbeddedResource Include="Shaders\image.vert">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </EmbeddedResource>
+      <EmbeddedResource Remove="Run\Data\**" />
     </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="Run\Data\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="Run\Data\**" />
+    </ItemGroup>
+
 
 </Project>

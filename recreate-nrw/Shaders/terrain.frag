@@ -6,20 +6,31 @@ out vec4 FragColor;
 
 uniform vec3 lightDir;
 
-uniform sampler2D tile00;
-
-vec4 sampleHeightmap_bilinear(in sampler2D t, in vec2 pos)
+struct Tile
 {
-    vec2 texelSize = vec2(1.0, 0.0);
-    vec2 flooredPos = floor(pos);
-    vec4 tl = texture(t, (flooredPos + texelSize.yy) / 2048.0);
-    vec4 tr = texture(t, (flooredPos + texelSize.xy) / 2048.0);
-    vec4 bl = texture(t, (flooredPos + texelSize.yx) / 2048.0);
-    vec4 br = texture(t, (flooredPos + texelSize.xx) / 2048.0);
-    vec2 f  = fract( pos );
-    vec4 tA = mix( tl, tr, f.x );
-    vec4 tB = mix( bl, br, f.x );
-    return mix( tA, tB, f.y );
+    vec2 pos;
+    sampler2D data;
+};
+
+uniform Tile tiles[4];
+
+// Expects decimals
+float getHeight(vec2 pos) {
+    vec2 fraction = mod(mod(pos, 2048.0) + 2048.0, 2048.0) / 2048.0;
+    vec2 floored = floor(pos);
+    vec2 offsetInTile = mod(mod(floored, 2048.0) + 2048.0, 2048.0);
+    vec2 index = round((floored - offsetInTile) / 2048.0);
+    // Always sample textures to prevent mipmap errors at border
+    float sample0 = texture(tiles[0].data, fraction).r;
+    float sample1 = texture(tiles[1].data, fraction).r;
+    float sample2 = texture(tiles[2].data, fraction).r;
+    float sample3 = texture(tiles[3].data, fraction).r;
+    float centimetres = tiles[0].pos == index ? sample0
+                      : tiles[1].pos == index ? sample1
+                      : tiles[2].pos == index ? sample2
+                      : tiles[3].pos == index ? sample3
+                      : 0.0;
+    return centimetres / 100.0;
 }
 
 vec4 cubic(float v)
@@ -33,7 +44,8 @@ vec4 cubic(float v)
     return vec4(x, y, z, w) / 6.0;
 }
 
-vec4 heightmapBicubic(sampler2D t, vec2 pos)
+// bicubic interpolation
+float getHeightBicubic(vec2 pos)
 {
     pos -= 0.5;
     
@@ -48,14 +60,11 @@ vec4 heightmapBicubic(sampler2D t, vec2 pos)
     
     vec4 s = vec4(xcubic.xz + xcubic.yw, ycubic.xz + ycubic.yw);
     vec4 offset = c + vec4(xcubic.yw, ycubic.yw) / s;
-
-    float texelSize = 1.0 / 2048.0;
-    offset *= texelSize;
     
-    vec4 sample0 = texture(t, offset.xz);
-    vec4 sample1 = texture(t, offset.yz);
-    vec4 sample2 = texture(t, offset.xw);
-    vec4 sample3 = texture(t, offset.yw);
+    float sample0 = getHeight(offset.xz);
+    float sample1 = getHeight(offset.yz);
+    float sample2 = getHeight(offset.xw);
+    float sample3 = getHeight(offset.yw);
     
     float sx = s.x / (s.x + s.y);
     float sy = s.z / (s.z + s.w);
@@ -64,13 +73,6 @@ vec4 heightmapBicubic(sampler2D t, vec2 pos)
         mix(sample3, sample2, sx),
         mix(sample1, sample0, sx)
     , sy);
-}
-
-float getHeight(vec2 pos) {
-    //TODO: multiple textures
-    if (pos.x < 0.0 || pos.x >= 2048.0) return 0.0;
-    if (pos.y < 0.0 || pos.y >= 2048.0) return 0.0;
-    return heightmapBicubic(tile00, pos).r / 100.0;
 }
 
 void main()
@@ -82,11 +84,11 @@ void main()
     vec3 right = vec3(pos.x + offset, 0.0, pos.y);
     vec3 bottom = vec3(pos.x, 0.0, pos.y + offset);
 
-    here.y = getHeight(here.xz);
-    left.y = getHeight(left.xz);
-    top.y = getHeight(top.xz);
-    right.y = getHeight(right.xz);
-    bottom.y = getHeight(bottom.xz);
+    here.y = getHeightBicubic(here.xz);
+    left.y = getHeightBicubic(left.xz);
+    top.y = getHeightBicubic(top.xz);
+    right.y = getHeightBicubic(right.xz);
+    bottom.y = getHeightBicubic(bottom.xz);
 
     vec3 normalTopLeft = normalize(cross(here - top, here - left));
     vec3 normalTopRight = normalize(cross(here - top, right - here));

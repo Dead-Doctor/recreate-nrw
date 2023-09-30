@@ -137,7 +137,8 @@ public class Window : GameWindow
         base.OnUpdateFrame(e);
         _controls.Update(e.Time, _camera);
         _controller.Update(this, (float) e.Time);
-        
+        _terrain.Update(_camera);
+
         _frameCount++;
         _timeSinceLastFpsUpdate += e.Time;
         if (_timeSinceLastFpsUpdate < 1.0) return;
@@ -160,15 +161,14 @@ public class Window : GameWindow
         var terrainData = Coordinate.World(_camera.Position).Epsg25832();
         if (ImGuiExtension.ImGuiVector2("EPSG:25832", terrainData, out var newCoordinates))
             _camera.Position = Coordinate.Epsg25832(newCoordinates, _camera.Position.Y).World();
+        
+        var dataTile = Coordinate.World(_camera.Position).TerrainDataIndex();
+        if (ImGuiExtension.Vector2("Data Tile", dataTile, out var newDataTile))
+            _camera.Position = Coordinate.TerrainDataIndex(newDataTile.FloorToInt()).World(_camera.Position.Y);
 
         if (ImGui.Button("To Coords"))
             ImGuiExtension.OpenUrl(
                 $"https://epsg.io/transform#s_srs=25832&t_srs=4326&ops=1149&x={terrainData.X.ToString(CultureInfo.InvariantCulture)}&y={terrainData.Y.ToString(CultureInfo.InvariantCulture)}");
-
-        if (_camera.Position.X is >= 0.0f and < Coordinate.TerrainTileSize &&
-            _camera.Position.Z is >= 0.0f and < Coordinate.TerrainTileSize)
-            ImGui.Value("Tile",
-                _terrain.Tile00.Data[(int) _camera.Position.Z * Coordinate.TerrainTileSize + (int) _camera.Position.X]);
 
         if (ImGui.Button("Home Sweet Home!"))
             _camera.Position = Coordinate.Epsg25832(new Vector2(347200, 5673200), _camera.Position.Y).World();

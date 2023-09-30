@@ -11,7 +11,15 @@ uniform mat4 projectionMat;
 uniform int n;
 
 //TODO: Upsample heightmap using bicubic interpolation (decrease size of triangles)
-uniform sampler2D tile00;
+
+struct Tile
+{
+    vec2 pos;
+    sampler2D data;
+};
+
+uniform Tile tiles[4];
+
 
 float invert(float a)
 {
@@ -38,12 +46,23 @@ float xor(float a, float b)
     return mod(a + b, 2.0);
 }
 
+// Expects an integer
 float getHeight(vec2 pos) {
-    //TODO: multiple textures
-    vec2 posFloored = floor(pos);
-    if (posFloored.x < 0.0 || posFloored.x >= 2048.0) return 0.0;
-    if (posFloored.y < 0.0 || posFloored.y >= 2048.0) return 0.0;
-    return texture(tile00, posFloored / 2048.0).r / 100.0;
+    vec2 rounded = round(pos);
+    vec2 offsetInTile = mod(mod(rounded, 2048.0) + 2048.0, 2048.0);
+    vec2 fraction = offsetInTile / 2048.0;
+    vec2 index = round((rounded - offsetInTile) / 2048.0);
+    // Always sample textures to prevent mipmap errors at border
+    float sample0 = texture(tiles[0].data, fraction).r;
+    float sample1 = texture(tiles[1].data, fraction).r;
+    float sample2 = texture(tiles[2].data, fraction).r;
+    float sample3 = texture(tiles[3].data, fraction).r;
+    float centimetres = tiles[0].pos == index ? sample0
+                      : tiles[1].pos == index ? sample1
+                      : tiles[2].pos == index ? sample2
+                      : tiles[3].pos == index ? sample3
+                      : 0.0;
+    return centimetres / 100.0;
 }
 
 void main()
@@ -78,7 +97,7 @@ void main()
     relativPos += offsetCount * n * offsetDirection;
     // Shift to correct position within ring
     relativPos += scale * n * posOffsetDirection;
-    pos = relativPos + modelPos;
+    pos = modelPos + relativPos;
     
     //Heights
     vec3 grid = vec3(scale, 0.0, scale);
@@ -87,8 +106,6 @@ void main()
     float yRight = getHeight(pos + grid.xy);
     float yTop = getHeight(pos - grid.yz);
     float yBottom = getHeight(pos + grid.yz);
-    float yTopLeft = getHeight(pos - grid.xz);
-    float yBottomRight = getHeight(pos + grid.xz);
     
     //Fix seams
     vec2 edge = aPosition / n;
