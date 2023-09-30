@@ -254,7 +254,7 @@ public class Window : GameWindow
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, null)
         };
         var log =
-            $@"OpenGL ({id}): [{typeString}] <{severityString}> @{sourceString} '{Marshal.PtrToStringUTF8(message)}'";
+            $"OpenGL ({id}): [{typeString}] <{severityString}> @{sourceString} '{Marshal.PtrToStringUTF8(message)}'";
         if (type is DebugType.DebugTypeError) throw new Exception(log);
         Console.WriteLine(log);
     }

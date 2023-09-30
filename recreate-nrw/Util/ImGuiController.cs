@@ -234,6 +234,7 @@ void main()
         }
 
         readonly List<char> PressedChars = new List<char>();
+        private static readonly Keys[] AllKeys = (Keys[]) Enum.GetValues(typeof(Keys));
 
         private void UpdateImGuiInput(GameWindow wnd)
         {
@@ -250,8 +251,7 @@ void main()
             var point = screenPoint;//wnd.PointToClient(screenPoint);
             io.MousePos = new System.Numerics.Vector2(point.X, point.Y);
 
-            //TODO: investigate memory leak? and fix
-            foreach (Keys key in Enum.GetValues(typeof(Keys)))
+            foreach (var key in AllKeys)
             {
                 if (key == Keys.Unknown)
                 {
