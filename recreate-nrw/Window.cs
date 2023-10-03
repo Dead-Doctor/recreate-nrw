@@ -87,6 +87,7 @@ public class Window : GameWindow
         // _scene = new TestScene(_camera);
     }
 
+    //TODO: crashes when streamed on discord
     protected override void OnRenderFrame(FrameEventArgs e)
     {
         base.OnRenderFrame(e);
