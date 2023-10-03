@@ -15,16 +15,16 @@ struct Tile
 uniform Tile tiles[4];
 
 // Expects decimals
-float getHeight(vec2 pos) {
+float getHeight(vec2 pos, vec2 dx, vec2 dy) {
     vec2 fraction = mod(mod(pos, 2048.0) + 2048.0, 2048.0) / 2048.0;
     vec2 floored = floor(pos);
     vec2 offsetInTile = mod(mod(floored, 2048.0) + 2048.0, 2048.0);
     vec2 index = round((floored - offsetInTile) / 2048.0);
     // Always sample textures to prevent mipmap errors at border
-    float sample0 = texture(tiles[0].data, fraction).r;
-    float sample1 = texture(tiles[1].data, fraction).r;
-    float sample2 = texture(tiles[2].data, fraction).r;
-    float sample3 = texture(tiles[3].data, fraction).r;
+    float sample0 = textureGrad(tiles[0].data, fraction, dx, dy).r;
+    float sample1 = textureGrad(tiles[1].data, fraction, dx, dy).r;
+    float sample2 = textureGrad(tiles[2].data, fraction, dx, dy).r;
+    float sample3 = textureGrad(tiles[3].data, fraction, dx, dy).r;
     float centimetres = tiles[0].pos == index ? sample0
                       : tiles[1].pos == index ? sample1
                       : tiles[2].pos == index ? sample2
@@ -45,7 +45,7 @@ vec4 cubic(float v)
 }
 
 // bicubic interpolation
-float getHeightBicubic(vec2 pos)
+float getHeightBicubic(vec2 pos, vec2 dx, vec2 dy)
 {
     pos -= 0.5;
     
@@ -61,10 +61,10 @@ float getHeightBicubic(vec2 pos)
     vec4 s = vec4(xcubic.xz + xcubic.yw, ycubic.xz + ycubic.yw);
     vec4 offset = c + vec4(xcubic.yw, ycubic.yw) / s;
     
-    float sample0 = getHeight(offset.xz);
-    float sample1 = getHeight(offset.yz);
-    float sample2 = getHeight(offset.xw);
-    float sample3 = getHeight(offset.yw);
+    float sample0 = getHeight(offset.xz, dx, dy);
+    float sample1 = getHeight(offset.yz, dx, dy);
+    float sample2 = getHeight(offset.xw, dx, dy);
+    float sample3 = getHeight(offset.yw, dx, dy);
     
     float sx = s.x / (s.x + s.y);
     float sy = s.z / (s.z + s.w);
@@ -84,11 +84,14 @@ void main()
     vec3 right = vec3(pos.x + offset, 0.0, pos.y);
     vec3 bottom = vec3(pos.x, 0.0, pos.y + offset);
 
-    here.y = getHeightBicubic(here.xz);
-    left.y = getHeightBicubic(left.xz);
-    top.y = getHeightBicubic(top.xz);
-    right.y = getHeightBicubic(right.xz);
-    bottom.y = getHeightBicubic(bottom.xz);
+    vec2 dx = dFdx(pos / 2048.0);
+    vec2 dy = dFdy(pos / 2048.0);
+    
+    here.y = getHeightBicubic(here.xz, dx, dy);
+    left.y = getHeightBicubic(left.xz, dx, dy);
+    top.y = getHeightBicubic(top.xz, dx, dy);
+    right.y = getHeightBicubic(right.xz, dx, dy);
+    bottom.y = getHeightBicubic(bottom.xz, dx, dy);
 
     vec3 normalTopLeft = normalize(cross(here - top, here - left));
     vec3 normalTopRight = normalize(cross(here - top, right - here));
