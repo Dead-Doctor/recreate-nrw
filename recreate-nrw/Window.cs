@@ -5,9 +5,9 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
+using recreate_nrw.Ground;
 using recreate_nrw.Foliage;
 using recreate_nrw.Render;
-using recreate_nrw.Terrain;
 using recreate_nrw.Util;
 
 namespace recreate_nrw;
@@ -27,7 +27,7 @@ public class Window : GameWindow
     private ShadedModel _shadedTerrainModel = null!;
     private bool _renderTerrainModel = false;
 
-    private Terrain.Terrain _terrain = null!;
+    private Ground.Terrain _terrain = null!;
     private Fern _fern = null!;
     private Grass _grass = null!;
     
@@ -80,9 +80,9 @@ public class Window : GameWindow
 
         _shadedTerrainModel = new ShadedModel(_terrainModel.Model, _terrainModelShader);
 
-        _terrain = new Terrain.Terrain(_lightDir);
+        _terrain = new Terrain(_lightDir);
         _fern = new Fern();
-        _grass = new Grass();
+        _grass = new Grass(_terrain);
 
         // _scene = new TestScene(_camera);
     }

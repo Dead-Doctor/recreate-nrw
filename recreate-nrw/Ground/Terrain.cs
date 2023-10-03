@@ -5,7 +5,7 @@ using recreate_nrw.Render;
 using recreate_nrw.Util;
 using Buffer = System.Buffer;
 
-namespace recreate_nrw.Terrain;
+namespace recreate_nrw.Ground;
 
 public class Terrain
 {
@@ -59,6 +59,8 @@ public class Terrain
     private int _bottom;
     private readonly LoadedTile?[] _loadedTiles = new LoadedTile?[4];
 
+    private readonly List<Shader> _dependentShaders = new List<Shader>();
+
     public Terrain(Vector3 lightDir)
     {
         RenderDistance = 512;
@@ -70,15 +72,25 @@ public class Terrain
         _shader.AddUniform<Matrix4>("projectionMat");
         _shader.AddUniform("n", N);
         _shader.AddUniform("lightDir", _lightDir);
-
-        for (var i = 0; i < _loadedTiles.Length; i++)
-        {
-            _shader.AddUniform<Vector2>($"tiles[{i}].pos");
-            _shader.AddTexture($"tiles[{i}].data");
-        }
+        
         SwitchTiles(0.0f, 0.0f);
+        AddDependentShader(_shader);
         
         GenerateModel();
+    }
+
+    public void AddDependentShader(Shader shader)
+    {
+        Console.WriteLine($"Marked shader '{shader}' as dependent.");
+        _dependentShaders.Add(shader);
+        for (var i = 0; i < _loadedTiles.Length; i++)
+        {
+            var loadedTile = _loadedTiles[i]!;
+            var tilePos = loadedTile.Pos;
+            var texture = loadedTile.Texture;
+            shader.AddUniform($"tiles[{i}].pos", tilePos.ToVector2());
+            shader.AddTexture($"tiles[{i}].data", texture);
+        }
     }
 
     private void GenerateModel()
@@ -182,8 +194,12 @@ public class Terrain
         var next = new LoadedTile(_data, tilePos);
         
         _loadedTiles[i] = next;
-        _shader.SetUniform($"tiles[{i}].pos", tilePos.ToVector2());
-        _shader.SetTexture($"tiles[{i}].data", next.Texture);
+
+        foreach (var shader in _dependentShaders)
+        {
+            shader.SetUniform($"tiles[{i}].pos", tilePos.ToVector2());
+            shader.SetTexture($"tiles[{i}].data", next.Texture);
+        }
     }
 
     public void Window()

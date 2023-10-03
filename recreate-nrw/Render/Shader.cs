@@ -9,12 +9,14 @@ public class Shader : IDisposable
 {
     private static Shader? _activeInstance;
 
+    private string _name;
     private int _handle;
     private readonly List<Uniform> _uniforms = new();
     private readonly List<TextureSlot> _textureSlots = new();
 
     public Shader(string name)
     {
+        _name = name;
         var vertexShaderSource = Resources.GetCached($"Shaders/{name}.vert", Source.Embedded, stream =>
         {
             using var reader = new StreamReader(stream, Encoding.UTF8);
@@ -169,6 +171,8 @@ public class Shader : IDisposable
         }
         GL.UseProgram(0);
     }
+
+    public override string ToString() => _name;
 
     private bool _disposedValue;
 

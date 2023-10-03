@@ -3,7 +3,7 @@ using OpenTK.Mathematics;
 using recreate_nrw.Render;
 using Vector3 = OpenTK.Mathematics.Vector3;
 
-namespace recreate_nrw.Terrain;
+namespace recreate_nrw.Ground;
 
 public class TerrainModel
 {

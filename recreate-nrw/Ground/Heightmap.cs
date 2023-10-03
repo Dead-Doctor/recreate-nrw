@@ -2,7 +2,7 @@
 using OpenTK.Mathematics;
 using recreate_nrw.Util;
 
-namespace recreate_nrw.Terrain;
+namespace recreate_nrw.Ground;
 
 /// <summary>
 /// Represents a source for height data.

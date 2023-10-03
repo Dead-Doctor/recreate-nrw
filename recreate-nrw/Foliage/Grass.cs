@@ -3,6 +3,7 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using recreate_nrw.Render;
 using recreate_nrw.Util;
+using recreate_nrw.Ground;
 
 namespace recreate_nrw.Foliage;
 
@@ -25,21 +26,21 @@ public class Grass
     private readonly ShadedModel _shadedModel;
     private Vector2 _offset = new(0.0f, 0.0f);
     private float _rotation = 0.0f;
-    private Vector3 _surfaceNormal = new(0.0f, 1.0f, 0.0f);
 
-    public Grass()
+    public Grass(Terrain terrain)
     {
         var model = Model.FromArray(Vertices, Indices);
         model.AddVertexAttribute(new VertexAttribute("aPosition", VertexAttribType.Float, 3));
         model.AddVertexAttribute(new VertexAttribute("aUV",       VertexAttribType.Float, 2));
+        
         _shader = new Shader("foliage");
         _shader.AddUniform("aOffset", _offset);
         _shader.AddUniform("aRotation", _rotation);
-        _shader.AddUniform("surfaceNormal", _surfaceNormal);
         _shader.AddUniform<Matrix4>("modelViewMat");
         _shader.AddUniform<Matrix4>("projectionMat");
         _shader.AddTexture("foliageTexture", Texture.LoadImageFile("Resources/grass.png", TextureWrapMode.ClampToEdge));
-
+        terrain.AddDependentShader(_shader);
+        
         _shadedModel = new ShadedModel(model, _shader);
     }
 
@@ -61,11 +62,6 @@ public class Grass
             _shader.SetUniform("aOffset", _offset);
         if (ImGui.SliderAngle("Rotation", ref _rotation))
             _shader.SetUniform("aRotation", _rotation);
-        if (ImGuiExtension.Vector3("Surface Normal", _surfaceNormal, out _surfaceNormal))
-        {
-            _surfaceNormal.Normalize();
-            _shader.SetUniform("surfaceNormal", _surfaceNormal);
-        }
         ImGui.End();
     }
 }

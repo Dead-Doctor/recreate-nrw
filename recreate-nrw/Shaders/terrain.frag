@@ -75,15 +75,14 @@ float getHeightBicubic(vec2 pos, vec2 dx, vec2 dy)
     , sy);
 }
 
-void main()
-{
+vec3 getNormal(vec2 pos) {
     float offset = 0.5;
     vec3 here = vec3(pos.x, 0.0, pos.y);
     vec3 left = vec3(pos.x - offset, 0.0, pos.y);
     vec3 top = vec3(pos.x, 0.0, pos.y - offset);
     vec3 right = vec3(pos.x + offset, 0.0, pos.y);
     vec3 bottom = vec3(pos.x, 0.0, pos.y + offset);
-
+    
     vec2 dx = dFdx(pos / 2048.0);
     vec2 dy = dFdy(pos / 2048.0);
     
@@ -97,9 +96,13 @@ void main()
     vec3 normalTopRight = normalize(cross(here - top, right - here));
     vec3 normalBottomLeft = normalize(cross(bottom - here, here - left));
     vec3 normalBottomRight = normalize(cross(bottom - here, right - here));
-    
-    vec3 normal = normalize(normalTopLeft + normalTopRight + normalBottomLeft + normalBottomRight);
-    
+
+    return normalize(normalTopLeft + normalTopRight + normalBottomLeft + normalBottomRight);
+}
+
+void main()
+{
+    vec3 normal = getNormal(pos);
     float ambient = 0.3;
     float diffuse = 0.7 * max(dot(-lightDir, normal), 0.0);
     FragColor = (ambient + diffuse) * vec4(1.0);
