@@ -167,10 +167,14 @@ public class Window : GameWindow
         if (ImGuiExtension.Vector2("Data Tile", dataTile, out var newDataTile))
             _camera.Position = Coordinate.TerrainDataIndex(newDataTile.FloorToInt()).World(_camera.Position.Y);
 
-        if (ImGui.Button("To Coords"))
-            ImGuiExtension.OpenUrl(
-                $"https://epsg.io/transform#s_srs=25832&t_srs=4326&ops=1149&x={terrainData.X.ToString(CultureInfo.InvariantCulture)}&y={terrainData.Y.ToString(CultureInfo.InvariantCulture)}");
+        var latLon = Coordinate.World(_camera.Position).Wgs84();
+        if (ImGuiExtension.Vector2("WGS 84", latLon, out var newLatLon))
+            _camera.Position = Coordinate.Wgs84(newLatLon, _camera.Position.Y).World();
 
+        if (ImGui.Button("Copy Location"))
+            ClipboardString =
+                $"{latLon.X.ToString(CultureInfo.InvariantCulture)}, {latLon.Y.ToString(CultureInfo.InvariantCulture)}";
+        
         if (ImGui.Button("Home Sweet Home!"))
             _camera.Position = Coordinate.Epsg25832(new Vector2(347200, 5673200), _camera.Position.Y).World();
 
