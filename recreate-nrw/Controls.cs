@@ -8,7 +8,8 @@ namespace recreate_nrw;
 
 public class Controls
 {
-    private const float Speed = 100f;
+    private const float Speed = 5f;
+    private const float SprintingSpeed = 100f;
     private const float Sensitivity = 0.05f / (2.0f * (float) Math.PI);
 
     // Time to zoom in/out in seconds
@@ -19,6 +20,7 @@ public class Controls
     private float _zoom;
 
     private bool _paused = true;
+    private bool _sprinting = true;
 
     private readonly Func<KeyboardState, float> _forwardsAxis = Axis(Keys.E, Keys.D);
     private readonly Func<KeyboardState, float> _sidewardsAxis = Axis(Keys.F, Keys.S);
@@ -41,11 +43,13 @@ public class Controls
         if (_paused) return;
         
         if (input.IsKeyPressed(Keys.P)) _window.Debug ^= true;
+        if (input.IsKeyPressed(Keys.B)) _sprinting ^= true;
+        var currentSpeed = _sprinting ? SprintingSpeed : Speed;
 
         var velocity = _forwardsAxis(input) * camera.Front + _sidewardsAxis(input) * camera.Right +
                        _upwardsAxis(input) * camera.Up;
         if (velocity != Vector3.Zero)
-            camera.Move(velocity.Normalized() * Speed * (float) deltaTime);
+            camera.Move(velocity.Normalized() * currentSpeed * (float) deltaTime);
 
         var mouse = _window.MouseState;
 
