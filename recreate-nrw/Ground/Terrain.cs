@@ -7,6 +7,8 @@ using Buffer = System.Buffer;
 
 namespace recreate_nrw.Ground;
 
+//TODO: fix schloss burg: 7.1496781, 51.1375123      370552.5815306349, 5666744.753800459      370.000, 5666.000
+
 public class Terrain
 {
     private const int TileSize = Coordinate.TerrainTileSize;
@@ -59,7 +61,7 @@ public class Terrain
     private int _bottom;
     private readonly LoadedTile?[] _loadedTiles = new LoadedTile?[4];
 
-    private readonly List<Shader> _dependentShaders = new List<Shader>();
+    private readonly List<Shader> _dependentShaders = new();
 
     public Terrain(Vector3 lightDir)
     {

@@ -40,7 +40,7 @@ public class Camera
     }
 
     public Camera(Vector2i size, Vector3 position, float yaw = 0.0f, float pitch = 0.0f, float fov = MathHelper.PiOver2,
-        float depthNear = 0.1f, float depthFar = 1024.0f)
+        float depthNear = 0.1f, float depthFar = 1048576.0f)
     {
         _aspect = size.X / (float) size.Y;
         _position = position;

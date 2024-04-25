@@ -9,7 +9,7 @@ public class Shader : IDisposable
 {
     private static Shader? _activeInstance;
 
-    private string _name;
+    private readonly string _name;
     private int _handle;
     private readonly List<Uniform> _uniforms = new();
     private readonly List<TextureSlot> _textureSlots = new();

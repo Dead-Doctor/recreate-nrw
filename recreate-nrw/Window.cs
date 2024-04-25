@@ -57,6 +57,7 @@ public class Window : GameWindow
 #if DEBUG
         GL.Enable(EnableCap.DebugOutput);
         GL.Enable(EnableCap.DebugOutputSynchronous);
+        // glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
         GL.DebugMessageCallback(_openGlDebugCallback, (IntPtr) 0);
 #endif
         Renderer.ClearColor = new Color4(0.2f, 0.3f, 0.3f, 1.0f);
@@ -126,6 +127,7 @@ public class Window : GameWindow
         _controller.Render();
         ImGuiController.CheckGLError("End of frame");
 
+        //GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
         SwapBuffers();
     }
 
