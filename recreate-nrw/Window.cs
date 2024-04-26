@@ -27,9 +27,11 @@ public class Window : GameWindow
     private ShadedModel _shadedTerrainModel = null!;
     private bool _renderTerrainModel = false;
 
-    private Ground.Terrain _terrain = null!;
+    private Terrain _terrain = null!;
     private Fern _fern = null!;
     private Grass _grass = null!;
+
+    private Sky _sky = null!;
     
     private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
     public bool Debug;
@@ -81,10 +83,12 @@ public class Window : GameWindow
 
         _shadedTerrainModel = new ShadedModel(_terrainModel.Model, _terrainModelShader);
 
-        _terrain = new Terrain(_lightDir);
+        _terrain = new Terrain();
         _fern = new Fern();
         _grass = new Grass(_terrain);
-
+        
+        _sky = new Sky();
+        
         // _scene = new TestScene(_camera);
     }
 
@@ -94,10 +98,15 @@ public class Window : GameWindow
         base.OnRenderFrame(e);
 
         Renderer.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
+        
         if (Debug)
             Renderer.PolygonMode = PolygonMode.Line;
 
+        //TODO: Render Skybox at the end with max. depth to utilize depth testing
+        Renderer.DepthTesting = false;
+        _sky.Draw(_camera);
+        Renderer.DepthTesting = true;
+        
         // _scene.OnRenderFrame();
         if (_renderTerrainModel)
         {
@@ -107,12 +116,12 @@ public class Window : GameWindow
         }
         else
         {
-            _terrain.Draw(_camera);
+            _terrain.Draw(_camera, _sky);
         }
         
         _grass.Draw(_camera);
         // _fern.Draw();
-
+        
         if (Debug)
             Renderer.PolygonMode = PolygonMode.Fill;
 
@@ -122,6 +131,7 @@ public class Window : GameWindow
         ImGui.ShowDemoWindow();
         _terrain.Window();
         _grass.Window();
+        _sky.Window();
         InfoWindow();
 
         _controller.Render();
@@ -172,19 +182,19 @@ public class Window : GameWindow
         var latLon = Coordinate.World(_camera.Position).Wgs84();
         if (ImGuiExtension.Vector2("WGS 84", latLon, out var newLatLon))
             _camera.Position = Coordinate.Wgs84(newLatLon, _camera.Position.Y).World();
-
+        
         if (ImGui.Button("Copy Location"))
             ClipboardString =
                 $"{latLon.X.ToString(CultureInfo.InvariantCulture)}, {latLon.Y.ToString(CultureInfo.InvariantCulture)}";
         
         if (ImGui.Button("Home Sweet Home!"))
-            _camera.Position = Coordinate.Epsg25832(new Vector2(347200, 5673200), _camera.Position.Y).World();
+            _camera.Position = Coordinate.Epsg25832(new Vector2(347000, 5673000), _camera.Position.Y).World();
 
         if (ImGui.Checkbox("Render Terrain Model", ref _renderTerrainModel))
         {
             _camera.Position += (_renderTerrainModel ? -1.0f : 1.0f) * new Vector3(1000.0f, 0.0f, 1001.0f);
         }
-
+        
         ImGui.End();
     }
 

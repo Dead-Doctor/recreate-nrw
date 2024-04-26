@@ -26,4 +26,12 @@ public static class ImGuiExtension
         newValue = new Vector3(pos.X, pos.Y, pos.Z);
         return result;
     }
+
+    public static bool ColorEdit4(string label, ref Color4 value)
+    {
+        var color = new System.Numerics.Vector4(value.R, value.G, value.B, value.A);
+        var result = ImGui.ColorEdit4(label, ref color);
+        value = new Color4(color.X, color.Y, color.Z, color.W);
+        return result;
+    }
 }

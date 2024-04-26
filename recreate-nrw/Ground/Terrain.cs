@@ -27,7 +27,6 @@ public class Terrain
     private Model? _model;
     private ShadedModel? _shadedModel;
 
-    private readonly Vector3 _lightDir;
     //TODO: information graph
 
     private int N
@@ -63,17 +62,16 @@ public class Terrain
 
     private readonly List<Shader> _dependentShaders = new();
 
-    public Terrain(Vector3 lightDir)
+    public Terrain()
     {
         RenderDistance = 512;
-        _lightDir = lightDir;
 
         _shader = new Shader("terrain");
         _shader.AddUniform<Vector2>("modelPos");
         _shader.AddUniform<Matrix4>("viewMat");
         _shader.AddUniform<Matrix4>("projectionMat");
         _shader.AddUniform("n", N);
-        _shader.AddUniform("lightDir", _lightDir);
+        _shader.AddUniform<Vector3>("sunDir");
         
         SwitchTiles(0.0f, 0.0f);
         AddDependentShader(_shader);
@@ -141,7 +139,7 @@ public class Terrain
         _shadedModel = new ShadedModel(_model, _shader);
     }
     
-    public void Draw(Camera camera)
+    public void Draw(Camera camera, Sky sky)
     {
         var offset = new Vector2(_biggestSquares / 2.0f) - camera.Position.Xz.Modulo(_biggestSquares);
         var eye = new Vector3(-offset.X, camera.Position.Y, -offset.Y);
@@ -150,7 +148,7 @@ public class Terrain
         _shader.SetUniform("modelPos", modelPos);
         _shader.SetUniform("viewMat", viewMat);
         _shader.SetUniform("projectionMat", camera.ProjectionMat);
-
+        _shader.SetUniform("sunDir", sky.SunDirection);
         _shadedModel!.DrawInstanced(_chunks);
     }
 

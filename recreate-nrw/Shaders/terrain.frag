@@ -4,7 +4,7 @@ in vec2 pos;
 
 out vec4 FragColor;
 
-uniform vec3 lightDir;
+uniform vec3 sunDir;
 
 struct Tile
 {
@@ -104,6 +104,6 @@ void main()
 {
     vec3 normal = getNormal(pos);
     float ambient = 0.3;
-    float diffuse = 0.7 * max(dot(-lightDir, normal), 0.0);
+    float diffuse = 0.7 * max(dot(sunDir, normal), 0.0);
     FragColor = (ambient + diffuse) * vec4(1.0);
 }

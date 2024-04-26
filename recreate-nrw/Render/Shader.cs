@@ -243,6 +243,14 @@ public class Uniform<T> : Uniform where T : struct
         {
             GL.Uniform3(_handle, (Vector3)Convert.ChangeType(Data, typeof(Vector3)));
         }
+        else if (typeof(T) == typeof(Vector4))
+        {
+            GL.Uniform4(_handle, (Vector4)Convert.ChangeType(Data, typeof(Vector4)));
+        }
+        else if (typeof(T) == typeof(Color4))
+        {
+            GL.Uniform4(_handle, (Color4)Convert.ChangeType(Data, typeof(Color4)));
+        }
         else if (typeof(T) == typeof(Matrix3))
         {
             var data = (Matrix3) Convert.ChangeType(Data, typeof(Matrix3));
