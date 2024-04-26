@@ -44,6 +44,8 @@ public class Sky
     private readonly Shader _shader;
     private readonly ShadedModel _shadedModel;
 
+    private bool _systemTime = false;
+    private float _timeOverride = 16f;
     public Vector3 SunDirection;
 
     private Color4 _skyHorizon = new(0.74f, 0.82f, 0.85f, 1f);
@@ -69,7 +71,8 @@ public class Sky
     {
         var here = Coordinate.World(camera.Position).Wgs84();
         var now = DateTime.UtcNow;
-        SunDirection = CalculateSunDirection(now.Year, now.Month, now.Day, now.TimeOfDay.TotalHours,
+        var gmt = _systemTime ? now.TimeOfDay.TotalHours : _timeOverride;
+        SunDirection = CalculateSunDirection(now.Year, now.Month, now.Day, gmt,
             here.X, here.Y);
 
         var viewMat = Matrix4.LookAt(Vector3.Zero, camera.Front, camera.Up);
@@ -82,6 +85,12 @@ public class Sky
     public void Window()
     {
         ImGui.Begin("Sky");
+
+        ImGui.Checkbox("System", ref _systemTime);
+        ImGui.SameLine();
+        if (_systemTime) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.5f);
+        ImGui.DragFloat("UTC Time", ref _timeOverride, _systemTime ? 0f : 0.1f, 0f, 24f);
+        if (_systemTime) ImGui.PopStyleVar();
         
         if (ImGuiExtension.ColorEdit4("Sky Horizon", ref _skyHorizon))
             _shader.SetUniform("skyHorizon", _skyHorizon);
