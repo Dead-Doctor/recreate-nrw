@@ -64,7 +64,7 @@ public class Sky
         _shader.AddUniform("skyZenith", _skyZenith);
         _shader.AddUniform<Vector3>("sunDir");
         _shader.AddUniform("sunFallOff", _sunFallOff);
-        _shadedModel = new ShadedModel(model, _shader);
+        _shadedModel = new ShadedModel(model, _shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
     }
 
     public void Draw(Camera camera)

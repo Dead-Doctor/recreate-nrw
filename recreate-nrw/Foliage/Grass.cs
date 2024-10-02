@@ -41,7 +41,7 @@ public class Grass
         _shader.AddTexture("foliageTexture", Texture.LoadImageFile("Resources/grass.png", TextureWrapMode.ClampToEdge));
         terrain.AddDependentShader(_shader);
         
-        _shadedModel = new ShadedModel(model, _shader);
+        _shadedModel = new ShadedModel(model, _shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
     }
 
     public void Draw(Camera camera)

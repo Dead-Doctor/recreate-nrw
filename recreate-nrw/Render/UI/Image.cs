@@ -21,6 +21,7 @@ public class Image
     {
         Position = position;
         Texture = texture;
+        _shadedModel = new ShadedModel(_model, Shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
 
         var vertices = new[]
         {

@@ -101,7 +101,7 @@ public class TestScene
         _shader.AddTexture("container", Texture.LoadImageFile("Resources/container.jpg"));
         _shader.AddTexture("awesomeface", Texture.LoadImageFile("Resources/awesomeface.png"));
         
-        _shadedModel = new ShadedModel(model, _shader);
+        _shadedModel = new ShadedModel(model, _shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
 
         var rng = new Random(8245);
 

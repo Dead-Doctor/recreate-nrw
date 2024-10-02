@@ -81,7 +81,7 @@ public class Window : GameWindow
         _terrainModelShader.AddTexture("dirtTexture", Texture.LoadImageFile("Resources/Dirt/Ground023_1K_Color.jpg"));
         _terrainModelShader.AddTexture("grassTexture", Texture.LoadImageFile("Resources/Grass/Grass001_1K_Color.jpg"));
 
-        _shadedTerrainModel = new ShadedModel(_terrainModel.Model, _terrainModelShader);
+        _shadedTerrainModel = new ShadedModel(_terrainModel.Model, _terrainModelShader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
 
         _terrain = new Terrain();
         _fern = new Fern();
@@ -272,7 +272,8 @@ public class Window : GameWindow
         };
         var log =
             $"OpenGL ({id}): [{typeString}] <{severityString}> @{sourceString} '{Marshal.PtrToStringUTF8(message)}'";
-        if (type is DebugType.DebugTypeError) throw new Exception(log);
+        if (type is DebugType.DebugTypeError)
+            throw new Exception(log);
         Console.WriteLine(log);
     }
 }

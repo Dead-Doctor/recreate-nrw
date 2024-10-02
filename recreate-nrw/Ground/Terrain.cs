@@ -136,7 +136,7 @@ public class Terrain
         _model = Model.FromArray(vertices, indices);
         _model.AddVertexAttribute(new VertexAttribute("aPosition", VertexAttribType.Float, 2));
         if (_shadedModel != null) Resources.Dispose(_shadedModel);
-        _shadedModel = new ShadedModel(_model, _shader);
+        _shadedModel = new ShadedModel(_model, _shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
     }
     
     public void Draw(Camera camera, Sky sky)
