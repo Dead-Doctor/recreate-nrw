@@ -8,33 +8,34 @@ namespace recreate_nrw.Render;
 public abstract class Texture
 {
     private static readonly Texture?[] ActiveInstances = new Texture?[TextureUnit.Texture31 - TextureUnit.Texture0 + 1];
-    
+
     [PublicAPI]
     public static Texture Load(string id, LazyTextureData source) =>
         Resources.GetCached(id, Source.Memory, _ => new StaticTexture(source()));
 
     [PublicAPI]
-    public static Texture LoadImageFile(string texturePath, TextureWrapMode textureWrapMode = TextureWrapMode.Repeat) => Load(texturePath, () =>
-        Resources.GetCached(texturePath, Source.WorkingDirectory, stream =>
-        {
-            StbImage.stbi_set_flip_vertically_on_load(1);
-
-            var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
-
-            var format = image.Comp switch
+    public static Texture LoadImageFile(string texturePath, TextureWrapMode textureWrapMode = TextureWrapMode.Repeat) =>
+        Load(texturePath, () =>
+            Resources.GetCached(texturePath, Source.WorkingDirectory, stream =>
             {
-                ColorComponents.Default => throw new ArgumentException(
-                    "Tried to load texture with color components: Default."),
-                ColorComponents.Grey => PixelFormat.Luminance,
-                ColorComponents.GreyAlpha => PixelFormat.LuminanceAlpha,
-                ColorComponents.RedGreenBlue => PixelFormat.Rgb,
-                ColorComponents.RedGreenBlueAlpha => PixelFormat.Rgba,
-                _ => throw new ArgumentOutOfRangeException(image.Comp.ToString())
-            };
+                StbImage.stbi_set_flip_vertically_on_load(1);
 
-            return new TextureDataBuffer(image.Data, image.Width, image.Height, format, PixelType.UnsignedByte,
-                SizedInternalFormat.Rgba8, textureWrapMode, false, true);
-        }));
+                var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
+
+                var format = image.Comp switch
+                {
+                    ColorComponents.Default => throw new ArgumentException(
+                        "Tried to load texture with color components: Default."),
+                    ColorComponents.Grey => PixelFormat.Luminance,
+                    ColorComponents.GreyAlpha => PixelFormat.LuminanceAlpha,
+                    ColorComponents.RedGreenBlue => PixelFormat.Rgb,
+                    ColorComponents.RedGreenBlueAlpha => PixelFormat.Rgba,
+                    _ => throw new ArgumentOutOfRangeException(image.Comp.ToString())
+                };
+
+                return new TextureDataBuffer(image.Data, image.Width, image.Height, format, PixelType.UnsignedByte,
+                    SizedInternalFormat.Rgba8, textureWrapMode, false, true);
+            }));
 
     public void Activate(int i)
     {
@@ -51,13 +52,13 @@ public abstract class Texture
         GL.BindTextureUnit(i, 0);
     }
 
-    protected abstract int GetHandle();
+    public abstract int GetHandle();
 }
 
 public class StaticTexture : Texture, IDisposable
 {
     public readonly int Handle;
-    
+
     public StaticTexture(ITextureData textureData)
     {
         GL.CreateTextures(TextureTarget.Texture2D, 1, out Handle);
@@ -69,28 +70,31 @@ public class StaticTexture : Texture, IDisposable
                 : TextureMinFilter.Linear;
         var magFilter = textureData.NearestFiltering ? TextureMagFilter.Nearest : TextureMagFilter.Linear;
 
-        GL.TextureParameter(Handle, TextureParameterName.TextureMinFilter, (int) minFilter);
-        GL.TextureParameter(Handle, TextureParameterName.TextureMagFilter, (int) magFilter);
+        GL.TextureParameter(Handle, TextureParameterName.TextureMinFilter, (int)minFilter);
+        GL.TextureParameter(Handle, TextureParameterName.TextureMagFilter, (int)magFilter);
 
-        GL.TextureParameter(Handle, TextureParameterName.TextureWrapS, (int) textureData.WrapMode);
-        GL.TextureParameter(Handle, TextureParameterName.TextureWrapT, (int) textureData.WrapMode);
+        GL.TextureParameter(Handle, TextureParameterName.TextureWrapS, (int)textureData.WrapMode);
+        GL.TextureParameter(Handle, TextureParameterName.TextureWrapT, (int)textureData.WrapMode);
 
         var levels = 1;
         if (textureData.Mipmaps)
-            levels += (int) Math.Floor(Math.Log2(Math.Max(textureData.Width, textureData.Height)));
+            levels += (int)Math.Floor(Math.Log2(Math.Max(textureData.Width, textureData.Height)));
 
         GL.TextureStorage2D(Handle, levels, textureData.InternalFormat, textureData.Width, textureData.Height);
         if (textureData is TextureDataBuffer textureDataBuffer)
-        {
-            GL.TextureSubImage2D(Handle, 0, 0, 0, textureDataBuffer.Width, textureDataBuffer.Height,
-                textureDataBuffer.Format,
-                textureDataBuffer.Type, textureDataBuffer.Data);
-        }
+            UploadImageData(textureDataBuffer);
 
-        if (textureData.Mipmaps)
-            GenerateMipmap();
-        
         Resources.RegisterDisposable(this);
+    }
+
+    public void UploadImageData(TextureDataBuffer textureDataBuffer)
+    {
+        GL.TextureSubImage2D(Handle, 0, 0, 0, textureDataBuffer.Width, textureDataBuffer.Height,
+            textureDataBuffer.Format,
+            textureDataBuffer.Type, textureDataBuffer.Data);
+
+        if (textureDataBuffer.Mipmaps)
+            GenerateMipmap();
     }
 
     public void GenerateMipmap()
@@ -98,7 +102,7 @@ public class StaticTexture : Texture, IDisposable
         GL.GenerateTextureMipmap(Handle);
     }
 
-    protected override int GetHandle() => Handle;
+    public override int GetHandle() => Handle;
 
     private bool _disposedValue;
 
@@ -131,8 +135,21 @@ public interface ITextureData
     bool Mipmaps { get; }
 }
 
-public readonly record struct TextureDataFramebufferAttachment(int Width, int Height,
-    SizedInternalFormat InternalFormat, TextureWrapMode WrapMode, bool NearestFiltering, bool Mipmaps) : ITextureData;
+public readonly record struct TextureDataFramebufferAttachment(
+    int Width,
+    int Height,
+    SizedInternalFormat InternalFormat,
+    TextureWrapMode WrapMode,
+    bool NearestFiltering,
+    bool Mipmaps) : ITextureData;
 
-public readonly record struct TextureDataBuffer(byte[] Data, int Width, int Height, PixelFormat Format, PixelType Type,
-    SizedInternalFormat InternalFormat, TextureWrapMode WrapMode, bool NearestFiltering, bool Mipmaps) : ITextureData;
+public readonly record struct TextureDataBuffer(
+    byte[] Data,
+    int Width,
+    int Height,
+    PixelFormat Format,
+    PixelType Type,
+    SizedInternalFormat InternalFormat,
+    TextureWrapMode WrapMode,
+    bool NearestFiltering,
+    bool Mipmaps) : ITextureData;
