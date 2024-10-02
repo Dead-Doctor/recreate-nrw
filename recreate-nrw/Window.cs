@@ -32,6 +32,8 @@ public class Window : GameWindow
     private Grass _grass = null!;
 
     private Sky _sky = null!;
+
+    private Map _map = null!;
     
     private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
     public bool Debug;
@@ -88,7 +90,9 @@ public class Window : GameWindow
         _grass = new Grass(_terrain);
         
         _sky = new Sky();
-        
+
+        _map = new Map();
+
         // _scene = new TestScene(_camera);
     }
 
@@ -132,6 +136,7 @@ public class Window : GameWindow
         _terrain.Window();
         _grass.Window();
         _sky.Window();
+        _map.Window();
         InfoWindow();
 
         _controller.Render();

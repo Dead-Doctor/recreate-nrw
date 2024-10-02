@@ -11,6 +11,8 @@ public static class ImGuiExtension
         Process.Start(new ProcessStartInfo(url) {UseShellExecute = true});
     }
 
+    public static bool Vector2(string label, ref Vector2 vector)
+        => Vector2(label, vector, out vector);
     public static bool Vector2(string label, Vector2 value, out Vector2 newValue)
     {
         var vec = new System.Numerics.Vector2(value.X, value.Y);
