@@ -3,13 +3,14 @@
 // Vertex buffer
 in vec3 aPosition;
 in vec2 aUV;
-// Instance array
-uniform vec2 aOffset;
-uniform float aRotation;
+
+uniform int n;
+uniform float gridSize;
 
 out vec2 uv;
 
-uniform mat4 modelViewMat;
+uniform vec3 origin;
+uniform mat4 viewMat;
 uniform mat4 projectionMat;
 
 struct Tile
@@ -62,7 +63,7 @@ float getHeightBicubic(vec2 pos)
     vec4 ycubic = cubic(fractional.y);
 
     // Positions of neighbouring pixels
-    vec4 c = flooredPos.xxyy + vec2(-0.5, +1.5).xyxy;
+    vec4 c = flooredPos.xxyy + vec2(-0.5, + 1.5).xyxy;
 
     vec4 s = vec4(xcubic.xz + xcubic.yw, ycubic.xz + ycubic.yw);
     vec4 offset = c + vec4(xcubic.yw, ycubic.yw) / s;
@@ -76,8 +77,8 @@ float getHeightBicubic(vec2 pos)
     float sy = s.z / (s.z + s.w);
 
     return mix(
-    mix(sample3, sample2, sx),
-    mix(sample1, sample0, sx)
+        mix(sample3, sample2, sx),
+        mix(sample1, sample0, sx)
     , sy);
 }
 
@@ -102,24 +103,45 @@ vec3 getNormal(vec2 pos) {
 
     return normalize(normalTopLeft + normalTopRight + normalBottomLeft + normalBottomRight);
 }
+//// Copied from: https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+float PHI = 1.61803398874989484820459;  // Golden Ratio
+float rand(vec2 xy) {
+    float seed = 1.0f;
+    return fract(tan(distance(xy*PHI, xy)*seed)*xy.x);
+}
 
+//float rand(vec2 co) {
+//    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+//}
+
+float TWO_PI = 6.283185307179586;
+
+//TODO: Stay at one position and only teleport (pacman style) to other side when approaching edge
 void main()
 {
     uv = aUV;
     
-    vec3 surfaceNormal = getNormal(aOffset);
+    float row = mod(gl_InstanceID, n);
+    float column = floor(gl_InstanceID / n);
     
-    // front
-    vec3 normal = vec3(cos(aRotation), 0.0, sin(aRotation));
+    vec2 gridPos = vec2(column, row) - vec2(n / 2);
+    vec2 instancePos = origin.xz - gridSize * gridPos;
+
+    vec3 surfaceNormal = getNormal(instancePos);
+
+    float rotation = rand(instancePos) * TWO_PI;
+    
+    // front    
+    vec3 normal = vec3(cos(rotation), 0.0, sin(rotation));
     vec3 side = normalize(cross(surfaceNormal, normal));
-    
+
     // rotated normal
     vec3 front = cross(surfaceNormal, side);
-    
-    mat3 mat = mat3(front, surfaceNormal, side);
-    
-    float height = getHeight(aOffset);
-    vec3 finalPosition = vec3(aOffset.x, height, aOffset.y) + mat * aPosition;
 
-    gl_Position = vec4(finalPosition, 1.0) * modelViewMat * projectionMat;
+    mat3 mat = mat3(front, surfaceNormal, side);
+
+    float height = getHeight(instancePos);
+    vec3 finalPosition = vec3(instancePos.x, height, instancePos.y) + aPosition * mat;
+
+    gl_Position = vec4(finalPosition, 1.0) * viewMat * projectionMat;
 }
