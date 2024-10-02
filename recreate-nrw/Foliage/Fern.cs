@@ -16,15 +16,18 @@ public class Fern
         {
             var oldClearColor = Renderer.ClearColor;
             Renderer.ClearColor = new Color4(0.5f, 1.0f, 0.0f, 0.0f);
-            
+
             Renderer.Clear(ClearBufferMask.ColorBufferBit);
-            var image = new Image(new Box2(-1.0f, -0.5f, 1.0f, 0.5f),
-                Texture.LoadImageFile("Resources/awesomeface.png"));
+            var image = new Image(
+                Texture.LoadImageFile("Resources/awesomeface.png"),
+                new Box2(-1.0f, -0.5f, 1.0f, 0.5f),
+                false
+            );
             image.Draw();
 
             Renderer.ClearColor = oldClearColor;
         });
-        _image = new Image(new Box2(-1.0f, -1.0f, 0.0f, 0.0f), texture);
+        _image = new Image(texture, new Box2(-1.0f, -1.0f, 0.0f, 0.0f), false);
     }
 
     public void Draw()
