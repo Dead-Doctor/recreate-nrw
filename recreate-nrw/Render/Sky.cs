@@ -113,9 +113,9 @@ public class Sky
     {
         const double rpd = Math.PI / 180.0; // Radians per degree?
         var julday = new int[13];
-        int xleap = 0, dyear, dayofyr;
+        int xleap, dyear, dayofyr;
         double n, L, g, lambda, epsilon, alpha, delta, R, EoT;
-        double solarz, azi;
+        // double solarz, azi;
         double sunlat, sunlon, PHIo, PHIs, LAMo, LAMs, Sx, Sy, Sz;
 
         int[] nDay = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };

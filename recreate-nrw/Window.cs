@@ -34,14 +34,14 @@ public class Window : GameWindow
     private Sky _sky = null!;
 
     private Map _map = null!;
-    
+
     private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
     public bool Debug;
 
     public Window() : base(
         GameWindowSettings.Default,
         new NativeWindowSettings
-            {Title = "Recreate NRW", Size = (960, 540), APIVersion = new Version(4, 6)}
+            { Title = "Recreate NRW", Size = (960, 540), APIVersion = new Version(4, 6) }
     )
     {
         VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
@@ -62,13 +62,14 @@ public class Window : GameWindow
         GL.Enable(EnableCap.DebugOutput);
         GL.Enable(EnableCap.DebugOutputSynchronous);
         // glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-        GL.DebugMessageCallback(_openGlDebugCallback, (IntPtr) 0);
+        GL.DebugMessageCallback(_openGlDebugCallback, (IntPtr)0);
 #endif
         Renderer.ClearColor = new Color4(0.2f, 0.3f, 0.3f, 1.0f);
         Renderer.DepthTesting = true;
         Renderer.BackFaceCulling = true;
         Renderer.BlendingFunction(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
         _controller = new ImGuiController(ClientSize.X, ClientSize.Y);
+        Resources.RegisterDisposable(_controller);
 
         _camera = new Camera(Size, new Vector3(0.0f, 100.0f, 0.0f));
         _controls = new Controls(this);
@@ -83,12 +84,13 @@ public class Window : GameWindow
         _terrainModelShader.AddTexture("dirtTexture", Texture.LoadImageFile("Resources/Dirt/Ground023_1K_Color.jpg"));
         _terrainModelShader.AddTexture("grassTexture", Texture.LoadImageFile("Resources/Grass/Grass001_1K_Color.jpg"));
 
-        _shadedTerrainModel = new ShadedModel(_terrainModel.Model, _terrainModelShader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
+        _shadedTerrainModel = new ShadedModel(_terrainModel.Model, _terrainModelShader,
+            BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
 
         _terrain = new Terrain();
         _fern = new Fern();
         _grass = new Grass(_terrain);
-        
+
         _sky = new Sky();
 
         _map = new Map();
@@ -102,7 +104,7 @@ public class Window : GameWindow
         base.OnRenderFrame(e);
 
         Renderer.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-        
+
         if (Debug)
             Renderer.PolygonMode = PolygonMode.Line;
 
@@ -110,7 +112,7 @@ public class Window : GameWindow
         Renderer.DepthTesting = false;
         _sky.Draw(_camera);
         Renderer.DepthTesting = true;
-        
+
         // _scene.OnRenderFrame();
         if (_renderTerrainModel)
         {
@@ -122,10 +124,10 @@ public class Window : GameWindow
         {
             _terrain.Draw(_camera, _sky);
         }
-        
+
         _grass.Draw(_camera);
         // _fern.Draw();
-        
+
         if (Debug)
             Renderer.PolygonMode = PolygonMode.Fill;
 
@@ -138,9 +140,7 @@ public class Window : GameWindow
         _sky.Window();
         _map.Window();
         InfoWindow();
-
         _controller.Render();
-        ImGuiController.CheckGLError("End of frame");
 
         //GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
         SwapBuffers();
@@ -154,7 +154,7 @@ public class Window : GameWindow
     {
         base.OnUpdateFrame(e);
         _controls.Update(e.Time, _camera);
-        _controller.Update(this, (float) e.Time);
+        _controller.Update(this, (float)e.Time);
         _terrain.Update(_camera);
 
         _frameCount++;
@@ -169,17 +169,17 @@ public class Window : GameWindow
     {
         ImGui.Begin("Info");
 
-        ImGui.Value("Fps", (float) _fps);
+        ImGui.Value("Fps", (float)_fps);
         if (ImGui.Checkbox("VSync", ref _vsync))
             VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
-        
+
         if (ImGuiExtension.Vector3("Position", _camera.Position, out var newPosition))
             _camera.Position = newPosition;
 
         var terrainData = Coordinate.World(_camera.Position).Epsg25832();
         if (ImGuiExtension.Vector2("EPSG:25832", terrainData, out var newCoordinates))
             _camera.Position = Coordinate.Epsg25832(newCoordinates, _camera.Position.Y).World();
-        
+
         var dataTile = Coordinate.World(_camera.Position).TerrainDataIndex();
         if (ImGuiExtension.Vector2("Data Tile", dataTile, out var newDataTile))
             _camera.Position = Coordinate.TerrainDataIndex(newDataTile.FloorToInt()).World(_camera.Position.Y);
@@ -187,11 +187,11 @@ public class Window : GameWindow
         var latLon = Coordinate.World(_camera.Position).Wgs84();
         if (ImGuiExtension.Vector2("WGS 84", latLon, out var newLatLon))
             _camera.Position = Coordinate.Wgs84(newLatLon, _camera.Position.Y).World();
-        
+
         if (ImGui.Button("Copy Location"))
             ClipboardString =
                 $"{latLon.X.ToString(CultureInfo.InvariantCulture)}, {latLon.Y.ToString(CultureInfo.InvariantCulture)}";
-        
+
         if (ImGui.Button("Home Sweet Home!"))
             _camera.Position = Coordinate.Epsg25832(new Vector2(347000, 5673000), _camera.Position.Y).World();
 
@@ -199,7 +199,7 @@ public class Window : GameWindow
         {
             _camera.Position += (_renderTerrainModel ? -1.0f : 1.0f) * new Vector3(1000.0f, 0.0f, 1001.0f);
         }
-        
+
         ImGui.End();
     }
 
@@ -221,13 +221,13 @@ public class Window : GameWindow
     protected override void OnTextInput(TextInputEventArgs e)
     {
         base.OnTextInput(e);
-        _controller.PressChar((char) e.Unicode);
+        _controller.TextInput((char)e.Unicode);
     }
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
-        _controller.MouseScroll(e.Offset);
+        ImGuiController.MouseScroll(e.Offset);
     }
 
     protected override void OnUnload()
@@ -250,9 +250,12 @@ public class Window : GameWindow
             DebugType.DebugTypeError => "Error",
             DebugType.DebugTypeDeprecatedBehavior => "Deprecated Behavior",
             DebugType.DebugTypeUndefinedBehavior => "Undefined Behavior",
-            DebugType.DebugTypePortability => "Portability", DebugType.DebugTypePerformance => "Performance",
-            DebugType.DebugTypeOther => "Other", DebugType.DebugTypeMarker => "Marker",
-            DebugType.DebugTypePushGroup => "Push Group", DebugType.DebugTypePopGroup => "Pop Group",
+            DebugType.DebugTypePortability => "Portability",
+            DebugType.DebugTypePerformance => "Performance",
+            DebugType.DebugTypeOther => "Other",
+            DebugType.DebugTypeMarker => "Marker",
+            DebugType.DebugTypePushGroup => "Push Group",
+            DebugType.DebugTypePopGroup => "Pop Group",
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };
         var severityString = severity switch

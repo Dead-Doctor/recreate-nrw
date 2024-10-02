@@ -8,10 +8,6 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
-    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    </PropertyGroup>
-
     <ItemGroup>
       <PackageReference Include="ImGui.NET.Docking" Version="1.75.0" />
       <PackageReference Include="JetBrains.Annotations" Version="2023.2.0" />
@@ -57,6 +53,12 @@
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </EmbeddedResource>
       <EmbeddedResource Remove="Run\Data\**" />
+      <EmbeddedResource Include="Shaders\imgui.frag">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </EmbeddedResource>
+      <EmbeddedResource Include="Shaders\imgui.vert">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </EmbeddedResource>
     </ItemGroup>
 
     <ItemGroup>

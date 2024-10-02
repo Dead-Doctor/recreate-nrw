@@ -9,6 +9,7 @@ public static class Renderer
     private static bool _depthTesting; //GL_UNSIGNED_NORMALIZED
     private static bool _blending;
     private static bool _backFaceCulling;
+    private static bool _scissorTest;
     private static PolygonMode _polygonMode = PolygonMode.Fill;
     private static Box2i _viewport;
 
@@ -62,6 +63,20 @@ public static class Renderer
             else
                 GL.Disable(EnableCap.CullFace);
             _backFaceCulling = value;
+        }
+    }
+    
+    public static bool ScissorTest
+    {
+        get => _scissorTest;
+        set
+        {
+            if (_scissorTest == value) return;
+            if (value)
+                GL.Enable(EnableCap.ScissorTest);
+            else
+                GL.Disable(EnableCap.ScissorTest);
+            _scissorTest = value;
         }
     }
 

@@ -30,11 +30,9 @@ public class Shader : IDisposable
 
         var vertexShader = CreateAndCompileShader(ShaderType.VertexShader, vertexShaderSource);
         var fragmentShader = CreateAndCompileShader(ShaderType.FragmentShader, fragmentShaderSource);
-
+        
         CreateAndLinkProgram(vertexShader, fragmentShader);
-
-        GL.DetachShader(_handle, vertexShader);
-        GL.DetachShader(_handle, fragmentShader);
+        
         GL.DeleteShader(vertexShader);
         GL.DeleteShader(fragmentShader);
         Resources.RegisterDisposable(this);
@@ -60,6 +58,8 @@ public class Shader : IDisposable
         GL.AttachShader(_handle, vertexShader);
         GL.AttachShader(_handle, fragmentShader);
         GL.LinkProgram(_handle);
+        GL.DetachShader(_handle, vertexShader);
+        GL.DetachShader(_handle, fragmentShader);
 
         GL.GetProgram(_handle, GetProgramParameterName.LinkStatus, out var success);
         if (success == (int) All.True) return;
@@ -126,7 +126,7 @@ public class Shader : IDisposable
         }
         catch (ArgumentException)
         {
-            //TODO: give opengl objects names to print instead of handle (e.g. from file name)
+            //TODO: give opengl objects names to print instead of handle (e.g. from file name). also see: GL.ObjectLabel()
             throw new ArgumentException($"Could not find requested texture '{name}' in shader ({_handle}).");
         }
     }
