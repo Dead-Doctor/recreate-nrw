@@ -11,7 +11,7 @@ public class Fern
 
     public Fern()
     {
-        var texture = new Framebuffer(100, 200, true, false);
+        var texture = new Framebuffer(100, 200, false, false, false);
         texture.Use(() =>
         {
             var oldClearColor = Renderer.ClearColor;

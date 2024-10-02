@@ -11,26 +11,27 @@ public class Framebuffer : Texture, IDisposable
     private static StaticTexture CreateAttachment(TextureDataFramebufferAttachment data) =>
         Resources.GetCached($"framebufferAttachment{_framebufferAttachments++}", Source.Memory,
             _ => new StaticTexture(data));
-
+    
+    
     private readonly int _handle;
-    private readonly StaticTexture _texture;
-    private readonly int _width;
-    private readonly int _height;
+    private StaticTexture? _texture;
+    public int Width;
+    public int Height;
+    private readonly bool _resizable;
+    private readonly bool _nearestFiltering;
     private readonly bool _mipmaps;
 
-    public Framebuffer(int width, int height, bool nearestFiltering, bool mipmaps)
+    public Framebuffer(int width, int height, bool resizable, bool nearestFiltering, bool mipmaps)
     {
-        _width = width;
-        _height = height;
+        Width = width;
+        Height = height;
+        _resizable = resizable;
+        _nearestFiltering = nearestFiltering;
         _mipmaps = mipmaps;
 
         GL.CreateFramebuffers(1, out _handle);
 
-        _texture = CreateAttachment(new TextureDataFramebufferAttachment(width, height,
-            SizedInternalFormat.Rgba8, TextureWrapMode.ClampToEdge, nearestFiltering, mipmaps));
-        GL.NamedFramebufferTexture(_handle, FramebufferAttachment.ColorAttachment0, _texture.Handle, 0);
-
-        //TODO: optionally attach depth and stencil (render)buffer for 3d rendering
+        CreateAttachments();
 
         var framebufferStatus = GL.CheckNamedFramebufferStatus(_handle, FramebufferTarget.Framebuffer);
         if (framebufferStatus != FramebufferStatus.FramebufferComplete)
@@ -39,17 +40,36 @@ public class Framebuffer : Texture, IDisposable
         Resources.RegisterDisposable(this);
     }
 
+    private void CreateAttachments()
+    {
+        //TODO: optionally attach depth and stencil (render)buffer for 3d rendering
+        
+        if (_texture != null) Resources.Dispose(_texture);
+        _texture = CreateAttachment(new TextureDataFramebufferAttachment(Width, Height,
+            SizedInternalFormat.Rgba8, TextureWrapMode.ClampToEdge, _nearestFiltering, _mipmaps));
+        GL.NamedFramebufferTexture(_handle, FramebufferAttachment.ColorAttachment0, _texture.Handle, 0);
+    }
+
+    public void Resize(int width, int height)
+    {
+        if (!_resizable)
+            throw new InvalidOperationException("Framebuffer is not resizable.");
+        Width = width;
+        Height = height;
+        CreateAttachments();
+    }
+    
     public delegate void DrawToBuffer();
 
     public void Use(DrawToBuffer callback)
     {
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, _handle);
         var oldViewport = Renderer.Viewport;
-        Renderer.Viewport = new Box2i(0, 0, _width, _height);
+        Renderer.Viewport = new Box2i(0, 0, Width, Height);
         callback();
         Renderer.Viewport = oldViewport;
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-        if (_mipmaps) _texture.GenerateMipmap();
+        if (_mipmaps) _texture!.GenerateMipmap();
     }
 
     private bool _disposedValue;
@@ -68,6 +88,5 @@ public class Framebuffer : Texture, IDisposable
         if (_disposedValue) return;
         Console.WriteLine("GPU Resource leak! Did you forget to call Dispose() on Framebuffer?");
     }
-
-    protected override int GetHandle() => _texture.Handle;
+    public override int GetHandle() => _texture!.Handle;
 }
