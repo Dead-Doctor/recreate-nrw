@@ -59,6 +59,14 @@
       <EmbeddedResource Include="Shaders\imgui.vert">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </EmbeddedResource>
+      <None Remove="Shaders\map.frag" />
+      <EmbeddedResource Include="Shaders\map.frag">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </EmbeddedResource>
+      <None Remove="Shaders\map.vert" />
+      <EmbeddedResource Include="Shaders\map.vert">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </EmbeddedResource>
     </ItemGroup>
 
     <ItemGroup>

@@ -20,7 +20,6 @@ public class Camera
     public readonly Vector3 Up = new Vector3(0.0f, 1.0f, 0.0f).Normalized();
     public Vector3 Front;
     public Vector3 Right;
-    private float _yaw;
     private float _pitch;
     private float _fov;
     private readonly float _depthNear;
@@ -56,14 +55,14 @@ public class Camera
     private const float Epsilon = 0.001f;
     private void SetEuler(float yaw, float pitch)
     {
-        _yaw = yaw.Modulo(MathHelper.TwoPi);
+        Yaw = yaw.Modulo(MathHelper.TwoPi);
         const float limit = MathHelper.PiOver2 - Epsilon;
         _pitch = Math.Clamp(pitch, -limit, limit);
 
         var pitchSin = (float) Math.Sin(_pitch);
         var pitchCos = (float) Math.Cos(_pitch);
-        var yawSin   = (float) Math.Sin(_yaw);
-        var yawCos   = (float) Math.Cos(_yaw);
+        var yawSin   = (float) Math.Sin(Yaw);
+        var yawCos   = (float) Math.Cos(Yaw);
         Front.X = pitchCos * yawSin;
         Front.Y = pitchSin;
         Front.Z = pitchCos * -yawCos;
@@ -73,7 +72,7 @@ public class Camera
 
     public void Turn(float yaw, float pitch)
     {
-        SetEuler(_yaw + yaw, _pitch + pitch);
+        SetEuler(Yaw + yaw, _pitch + pitch);
     }
 
     public void Resize(Vector2i size)
@@ -99,4 +98,6 @@ public class Camera
     }
 
     public Vector3 WorldToViewCoords(Vector3 position) => (new Vector4(position, 1.0f) * ViewMat).Xyz;
+
+    public float Yaw { get; private set; }
 }
