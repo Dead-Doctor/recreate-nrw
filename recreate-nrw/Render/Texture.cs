@@ -135,7 +135,7 @@ public interface ITextureData
     bool Mipmaps { get; }
 }
 
-public readonly record struct TextureDataFramebufferAttachment(
+public readonly record struct TextureEmptyBuffer(
     int Width,
     int Height,
     SizedInternalFormat InternalFormat,

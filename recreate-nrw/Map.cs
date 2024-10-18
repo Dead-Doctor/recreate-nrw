@@ -48,9 +48,10 @@ public class Map
         ImGui.Begin("Map");
 
         var contentRegionAvail = ImGui.GetContentRegionAvail();
-        if ((int)contentRegionAvail.X != _framebuffer.Width)
+        var newHeight = Math.Max((int)contentRegionAvail.X, 20);
+        if (newHeight != _framebuffer.Width)
         {
-            _framebuffer.Resize((int)contentRegionAvail.X, _framebuffer.Height);
+            _framebuffer.Resize(newHeight, _framebuffer.Height);
             Redraw();
         }
 
