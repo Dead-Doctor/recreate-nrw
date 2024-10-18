@@ -72,6 +72,7 @@ public class Terrain
         _shader.AddUniform<Matrix4>("projectionMat");
         _shader.AddUniform("n", N);
         _shader.AddUniform<Vector3>("sunDir");
+        _shader.AddUniform<int>("debug");
         
         for (var i = 0; i < _loadedTiles.Length; i++) _loadedTiles[i] = new LoadedTile();
         SwitchTiles(0.0f, 0.0f);
@@ -140,7 +141,7 @@ public class Terrain
         _shadedModel = new ShadedModel(_model, _shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
     }
     
-    public void Draw(Camera camera, Sky sky)
+    public void Draw(Camera camera, Sky sky, bool debug = false)
     {
         var offset = new Vector2(_biggestSquares / 2.0f) - camera.Position.Xz.Modulo(_biggestSquares);
         var eye = new Vector3(-offset.X, camera.Position.Y, -offset.Y);
@@ -150,6 +151,7 @@ public class Terrain
         _shader.SetUniform("viewMat", viewMat);
         _shader.SetUniform("projectionMat", camera.ProjectionMat);
         _shader.SetUniform("sunDir", sky.SunDirection);
+        _shader.SetUniform("debug", debug ? 1 : 0);
         _shadedModel!.DrawInstanced(_chunks);
     }
 

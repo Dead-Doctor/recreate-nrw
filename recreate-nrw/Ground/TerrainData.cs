@@ -205,7 +205,6 @@ public class TerrainData
             // \r\n => +2 chars
             var lineLength = line.Length + 2;
             var buffer = new char[lineLength * linesPerBlock];
-            Console.WriteLine($"Buffer has a size of: {buffer.Length / 1024}KB");
 
             for (var j = 0; j < lineLength; j++)
             {

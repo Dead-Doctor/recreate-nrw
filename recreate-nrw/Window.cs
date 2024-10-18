@@ -105,9 +105,6 @@ public class Window : GameWindow
 
         Renderer.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-        if (Debug)
-            Renderer.PolygonMode = PolygonMode.Line;
-
         //TODO: Render Skybox at the end with max. depth to utilize depth testing
         Renderer.DepthTesting = false;
         _sky.Draw(_camera);
@@ -122,14 +119,26 @@ public class Window : GameWindow
         }
         else
         {
+            if (Debug)
+            {
+                GL.Enable(EnableCap.PolygonOffsetFill);
+                GL.PolygonOffset(1, 1);
+            }
             _terrain.Draw(_camera, _sky);
+            
+            if (Debug)
+            {
+                GL.Disable(EnableCap.PolygonOffsetFill);
+                
+                Renderer.PolygonMode = PolygonMode.Line;
+                _terrain.Draw(_camera, _sky, true);
+                Renderer.PolygonMode = PolygonMode.Fill;
+            }
         }
 
         _grass.Draw(_camera);
         // _fern.Draw();
 
-        if (Debug)
-            Renderer.PolygonMode = PolygonMode.Fill;
 
         ImGui.DockSpaceOverViewport(ImGui.GetMainViewport(),
             ImGuiDockNodeFlags.PassthruCentralNode | ImGuiDockNodeFlags.NoDockingInCentralNode);
@@ -157,6 +166,7 @@ public class Window : GameWindow
         _controls.Update(e.Time, _camera);
         _controller.Update(this, (float)e.Time);
         _terrain.Update(_camera);
+        _map.Update(_camera);
 
         _frameCount++;
         _timeSinceLastFpsUpdate += e.Time;
