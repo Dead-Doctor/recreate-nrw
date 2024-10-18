@@ -28,17 +28,12 @@ public class TerrainData
     private readonly Dictionary<Vector2i, int[]> _data = new();
     private readonly Dictionary<Vector2i, float[]> _tiles = new();
     private readonly List<Vector2i> _savedTiles = new();
-    
-    public Profiler? Profiler;
 
     public float[] GetTile(Vector2i pos)
     {
-        Profiler = new Profiler("GetTile");
-
         // Check loaded
         if (_tiles.TryGetValue(pos, out var tile))
         {
-            Profiler.StopProfiler(/*GetTile*/);
             return tile;
         }
 
@@ -58,14 +53,12 @@ public class TerrainData
         }
 
         _tiles.Add(pos, tile);
-
-        Profiler.StopProfiler(/*GetTile*/);
         return tile;
     }
 
     private float[] CreateTile(Vector2i pos)
     {
-        Profiler?.Start("CreateTile");
+        Profiler.Start($"CreateTile: ({pos.X}, {pos.Y})");
         //TODO: check if still works if any variable negative
 
         var (xStart, startY) = Coordinate.TerrainTileIndex(pos).TerrainData();
@@ -97,7 +90,7 @@ public class TerrainData
             }
         }
 
-        Profiler?.Stop( /*CreateTile*/);
+        Profiler.Stop(/*CreateTile*/);
         return tile;
     }
 
@@ -117,7 +110,6 @@ public class TerrainData
     /// </summary>
     private int[] LoadData(Vector2i tile)
     {
-        Profiler?.Start($"LoadData: ({tile.X}, {tile.Y})");
         var data = new int[DataArea];
         try
         {
@@ -127,6 +119,7 @@ public class TerrainData
             using var decompressed = new GZipStream(stream, CompressionMode.Decompress);
             using var reader = new StreamReader(decompressed);
 
+            Profiler.Start($"LoadData: ({tile.X}, {tile.Y})");
 
             var line = reader.ReadLine()!;
 
@@ -152,7 +145,6 @@ public class TerrainData
             reader.ReadBlock(buffer, lineLength, buffer.Length - lineLength);
 
             //TODO: use some sort of partitioning or parallel processing
-            Profiler?.Start("Read lines");
             for (var i = 0; i < DataArea / linesPerBlock; i++)
             {
                 if (i != 0) reader.ReadBlock(buffer, 0, buffer.Length);
@@ -175,15 +167,13 @@ public class TerrainData
                     data[y + lineI % 1000] = height;
                 }
             }
-            Profiler?.Stop( /*Read lines*/);
+            Profiler.Stop( /*LoadData*/);
         }
         catch (FileNotFoundException)
         {
             //TODO: Temp
             Console.WriteLine($"[WARNING]: Data tile was not found. {tile}");
         }
-
-        Profiler?.Stop( /*LoadData*/);
 
         _data.Add(tile, data);
         return data;

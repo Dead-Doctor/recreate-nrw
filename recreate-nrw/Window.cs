@@ -139,6 +139,7 @@ public class Window : GameWindow
         _grass.Window();
         _sky.Window();
         _map.Window();
+        Profiler.Window();
         InfoWindow();
         _controller.Render();
 

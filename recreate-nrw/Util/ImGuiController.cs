@@ -124,7 +124,7 @@ namespace recreate_nrw.Util
         {
             var io = ImGui.GetIO();
             io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out var width, out var height, out _);
-            var textureData = new byte[width * height * 4];
+            var textureData = new byte[width * height * sizeof(int)];
             Marshal.Copy(pixels, textureData, 0, textureData.Length);
 
             _fontTexture = Texture.Load("ImGui Text Atlas", () => new TextureDataBuffer(
