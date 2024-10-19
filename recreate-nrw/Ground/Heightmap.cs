@@ -17,7 +17,7 @@ public class Heightmap
     private readonly Vector2i _origin;
     
     /// <summary>
-    /// Two dimensional height array for every tile
+    /// Two-dimensional height array for every tile
     /// Vector2i: World tile coordinates
     /// </summary>
     private readonly Dictionary<Vector2i, float[,]> _values;

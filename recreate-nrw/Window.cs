@@ -187,15 +187,16 @@ public class Window : GameWindow
         if (ImGuiExtension.Vector3("Position", _camera.Position, out var newPosition))
             _camera.Position = newPosition;
 
-        var terrainData = Coordinate.World(_camera.Position).Epsg25832();
+        var cameraPosition = Coordinate.World(_camera.Position);
+        var terrainData = cameraPosition.Epsg25832();
         if (ImGuiExtension.Vector2("EPSG:25832", terrainData, out var newCoordinates))
             _camera.Position = Coordinate.Epsg25832(newCoordinates, _camera.Position.Y).World();
 
-        var dataTile = Coordinate.World(_camera.Position).TerrainDataIndex();
+        var dataTile = cameraPosition.TerrainDataIndex();
         if (ImGuiExtension.Vector2("Data Tile", dataTile, out var newDataTile))
             _camera.Position = Coordinate.TerrainDataIndex(newDataTile.FloorToInt()).World(_camera.Position.Y);
 
-        var latLon = Coordinate.World(_camera.Position).Wgs84();
+        var latLon = cameraPosition.Wgs84();
         if (ImGuiExtension.Vector2("WGS 84", latLon, out var newLatLon))
             _camera.Position = Coordinate.Wgs84(newLatLon, _camera.Position.Y).World();
 
@@ -205,7 +206,12 @@ public class Window : GameWindow
 
         if (ImGui.Button("Home Sweet Home!"))
             _camera.Position = Coordinate.Epsg25832(new Vector2(347000, 5673000), _camera.Position.Y).World();
+        ImGui.SameLine();
+        if (ImGui.Button("Schloss Burg"))
+            _camera.Position = Coordinate.Epsg25832(new Vector2(370552.5815306349f, 5666744.753800459f), _camera.Position.Y).World();
 
+        ImGui.Value("Terrain Height", _terrain.GetHeightAt(cameraPosition.TerrainTile()) ?? float.NaN);
+        
         if (ImGui.Checkbox("Render Terrain Model", ref _renderTerrainModel))
         {
             _camera.Position += (_renderTerrainModel ? -1.0f : 1.0f) * new Vector3(1000.0f, 0.0f, 1001.0f);

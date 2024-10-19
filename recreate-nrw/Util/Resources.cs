@@ -66,3 +66,46 @@ public enum Source
     Embedded,
     WorkingDirectory
 }
+
+
+public class AsyncResourceLoader<TId, TValue> where TId : notnull
+{
+    private readonly Dictionary<TId, Task<TValue>> _loadingTasks = new();
+
+    public Task<TValue> LoadResourceAsync(TId id, Func<TValue> loader)
+    {
+        lock (_loadingTasks)
+        {
+            if (_loadingTasks.TryGetValue(id, out var task)) return task;
+
+            var newTask = Task.Factory.StartNew(() =>
+            {
+                var value = loader();
+                lock (_loadingTasks) _loadingTasks.Remove(id);
+                return value;
+            }, TaskCreationOptions.LongRunning);
+                
+            _loadingTasks.Add(id, newTask);
+            return newTask;
+        }
+    }
+}
+    
+public class AsyncResourceLoaderCached<TId, TValue> where TId : notnull
+{
+    private readonly Dictionary<TId, TValue> _cache = new();
+    private readonly AsyncResourceLoader<TId, TValue> _resourceLoader = new();
+
+    public async Task<TValue> Get(TId id, Func<TId, TValue> loader)
+    {
+        lock (_cache)
+            if (_cache.TryGetValue(id, out var value)) return value;
+
+        return await _resourceLoader.LoadResourceAsync(id, () =>
+        {
+            var value = loader(id);
+            lock (_cache) _cache.Add(id, value);
+            return value;
+        });
+    }
+}

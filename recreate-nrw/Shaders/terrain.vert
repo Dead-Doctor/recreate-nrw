@@ -57,12 +57,11 @@ float getHeight(vec2 pos) {
     float sample1 = texture(tiles[1].data, fraction).r;
     float sample2 = texture(tiles[2].data, fraction).r;
     float sample3 = texture(tiles[3].data, fraction).r;
-    float centimetres = tiles[0].pos == index ? sample0
-                      : tiles[1].pos == index ? sample1
-                      : tiles[2].pos == index ? sample2
-                      : tiles[3].pos == index ? sample3
-                      : 0.0;
-    return centimetres / 100.0;
+    return tiles[0].pos == index ? sample0
+         : tiles[1].pos == index ? sample1
+         : tiles[2].pos == index ? sample2
+         : tiles[3].pos == index ? sample3
+         : 0.0;
 }
 
 void main()

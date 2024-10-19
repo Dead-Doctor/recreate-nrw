@@ -196,9 +196,7 @@ public class Terrain
         var tile = _loadedTiles[i];
         if (tile.Pos == tilePos) return;
 
-        _ = Task.Run(() => {
-            tile.MoveTile(_data, tilePos);
-        });
+        tile.MoveTile(_data, tilePos);
     }
 
     public void Window()
@@ -232,7 +230,7 @@ public class Terrain
         public readonly StaticTexture Texture = new(new TextureEmptyBuffer(TileSize, TileSize,
             SizedInternalFormat.R32f, TextureWrapMode.ClampToEdge, false, false));
 
-        private byte[]? _buffer = null;
+        private readonly byte[] _buffer = new byte[TileSize * TileSize * sizeof(float)];
         private bool _loaded = false;
 
         // Export as grayscale heightmap
@@ -244,28 +242,35 @@ public class Terrain
             stream.WriteByte((byte)((height / 100.0 - 30.0)*8.0));
         }*/
 
-        public void MoveTile(TerrainData data, Vector2i pos)
+        public async void MoveTile(TerrainData data, Vector2i pos)
         {
             Pos = pos;
             
             _loaded = false;
-            _buffer = new byte[TileSize * TileSize * sizeof(float)];
-            var tile = data.GetTile(pos);
+            var tile = await data.GetTile(pos);
             Buffer.BlockCopy(tile, 0, _buffer, 0, _buffer.Length);
-            
             _loaded = true;
         }
 
         public void CheckLoaded(Terrain terrain, int i)
         {
             if (!_loaded) return;
-            Texture.UploadImageData(new TextureDataBuffer(_buffer!, TileSize, TileSize, PixelFormat.Red, PixelType.Float,
+            Texture.UploadImageData(new TextureDataBuffer(_buffer, TileSize, TileSize, PixelFormat.Red, PixelType.Float,
                 SizedInternalFormat.R32f, TextureWrapMode.ClampToEdge, false, false));
-            _buffer = Array.Empty<byte>();
             _loaded = false;
             
             foreach (var shader in terrain._dependentShaders)
                 shader.SetUniform($"tiles[{i}].pos", Pos!.Value.ToVector2());
         }
+    }
+
+    public float? GetHeightAt(Vector2i pos)
+    {
+        var coordinate = Coordinate.TerrainTile(pos);
+        var task = _data.GetTile(coordinate.TerrainTileIndex());
+        if (!task.IsCompletedSuccessfully) return null;
+        var tile = task.Result;
+        var offset = coordinate.TerrainTile().Modulo(TileSize);
+        return tile[offset.Y * TileSize + offset.X];
     }
 }

@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using OpenTK.Mathematics;
 using recreate_nrw.Util;
 
@@ -44,37 +43,24 @@ public class TerrainData
     private const int DataArea = DataSize * DataSize;
     private const int TileSize = Coordinate.TerrainTileSize;
     private const int TileArea = TileSize * TileSize;
-
-    private readonly Dictionary<Vector2i, int[]> _data = new();
-    // private readonly Hashtable _data = new();
-    private readonly Dictionary<Vector2i, float[]> _tiles = new();
+    
     private readonly List<Vector2i> _savedTiles = new();
+    private readonly Dictionary<Vector2i, float[]> _tileCache = new();
+    private readonly AsyncResourceLoader<Vector2i, float[]> _tileLoader = new();
+    private readonly AsyncResourceLoaderCached<Vector2i, float[]> _dataLoaderCached = new();
 
-    public float[] GetTile(Vector2i pos)
+    //TODO: might crash when called twice for same tile in quick succession for the first time
+    public async Task<float[]> GetTile(Vector2i pos)
     {
-        // Check loaded
-        if (_tiles.TryGetValue(pos, out var tile))
+        lock (_tileCache)
+            if (_tileCache.TryGetValue(pos, out var value)) return value;
+        
+        return await _tileLoader.LoadResourceAsync(pos, () =>
         {
+            var tile = _savedTiles.Contains(pos) ? LoadTile(pos) : CreateTile(pos);
+            lock (_tileCache) _tileCache.Add(pos, tile);
             return tile;
-        }
-
-        // Check hard drive
-        if (_savedTiles.Contains(pos))
-        {
-            //TODO: tile = ReadTile(pos);
-            tile = null!;
-        }
-        else
-        {
-            // Generate from heightmap
-            tile = CreateTile(pos);
-
-            //TODO: do asynchronous
-            //TODO: SaveTile(generatedTile);
-        }
-
-        _tiles.Add(pos, tile);
-        return tile;
+        });
     }
 
     private float[] CreateTile(Vector2i pos)
@@ -90,9 +76,9 @@ public class TerrainData
         if (OffsetInDataTile(yStart - 1) <= OffsetInDataTile(TileSize)) dataTileRows++;
         var dataTileColumns = TileSize / DataSize + 1;
         if (OffsetInDataTile(xEnd - 1) <= OffsetInDataTile(TileSize)) dataTileColumns++;
-        
+
         var topLeft = new Vector2i(xStart, yEnd) / DataSize;
-        var dataTiles = new Task<int[]>[dataTileRows * dataTileColumns];
+        var dataTiles = new Task<float[]>[dataTileRows * dataTileColumns];
         for (var y = 0; y < dataTileRows; y++)
         {
             for (var x = 0; x < dataTileColumns; x++)
@@ -100,15 +86,7 @@ public class TerrainData
                 dataTiles[y * dataTileColumns + x] = GetData(topLeft + new Vector2i(x, y));
             }
         }
-        // for (var y = 0; y < dataTileRows; y++)
-        // {
-        //     for (var x = 0; x < dataTileColumns; x++)
-        //     {
-        //         dataTiles[y * dataTileColumns + x].Result;
-        //     }
-        // }
-        // // Task.WaitAll(dataTiles);
-        
+
         var tile = new float[TileArea];
 
         for (var yOffset = 0; yOffset < TileSize; yOffset++)
@@ -132,7 +110,8 @@ public class TerrainData
             }
         }
 
-        Profiler.Stop(/*CreateTile*/);
+        Profiler.Stop( /*CreateTile*/);
+        SaveTile(pos, tile);
         return tile;
     }
 
@@ -141,36 +120,19 @@ public class TerrainData
         return pos.Modulo(DataSize);
     }
 
-    private readonly Hashtable _activeLoadingTasks = Hashtable.Synchronized(new Hashtable()); 
-    private async Task<int[]> GetData(Vector2i tile)
+    private float[] LoadTile(Vector2i pos)
     {
-        lock (_data)
-        {
-            if (_data.TryGetValue(tile, out var data)) return data;
-        }
-
-        Task<int[]>? loadingTask;
-        if (_activeLoadingTasks.Contains(tile))
-        {
-            loadingTask = (Task<int[]>)_activeLoadingTasks[tile]!;
-        }
-        else
-        {
-            loadingTask = Task.Factory.StartNew(() =>
-            {
-                var data = LoadData(tile);
-                _activeLoadingTasks.Remove(tile);
-                return data;
-            }, TaskCreationOptions.LongRunning);
-            _activeLoadingTasks.Add(tile, loadingTask);
-        }
-        var loadedData = await loadingTask;
-        lock (_data)
-        {
-            _data.Add(tile, loadedData);
-        }
-        return loadedData;
+        throw new NotImplementedException("Not implemented yet!");
     }
+
+    private void SaveTile(Vector2i pos, float[] tile)
+    {
+        //TODO: Not implemented yet!
+        // _savedTiles.Add(pos);
+    }
+    
+    //TODO: delete after all tiles have been created using this datatile
+    private async Task<float[]> GetData(Vector2i tile) => await _dataLoaderCached.Get(tile, LoadData);
 
     /// <summary>
     /// Time (avg for 9x, changes additional to previous):
@@ -179,9 +141,9 @@ public class TerrainData
     /// 100 Lines at a time: 196ms
     /// Parse Int manually: 139ms
     /// </summary>
-    private static int[] LoadData(Vector2i tile)
+    private static float[] LoadData(Vector2i tile)
     {
-        var data = new int[DataArea];
+        var data = new float[DataArea];
         try
         {
             var path = $"Data/Raw/dgm1_32_{tile.X}_{tile.Y}_1_nw.xyz.gz";
@@ -191,53 +153,35 @@ public class TerrainData
             using var reader = new StreamReader(decompressed);
 
             Profiler.Start($"LoadData: ({tile.X}, {tile.Y})");
-
-            var line = reader.ReadLine()!;
-
-            var lastSpace = line[..^1].LastIndexOf(' ');
-            var blocks = line.Split(' ')[2].Split('.');
-            var firstBlockIndex = lastSpace + 1;
-            var firstBlockLength = blocks[0].Length;
-            var secondBlockIndex = firstBlockIndex + firstBlockLength + 1;
-            var secondBlockLength = blocks[1].Length;
-
+            
             const int linesPerBlock = 1000 / 4;
-            // \r\n => +2 chars
-            var lineLength = line.Length + 2;
-            var buffer = new char[lineLength * linesPerBlock];
-
-            for (var j = 0; j < lineLength; j++)
-            {
-                if (j == lineLength - 2) buffer[j] = '\r';
-                else if (j == lineLength - 1) buffer[j] = '\n';
-                else buffer[j] = line[j];
-            }
-
-            reader.ReadBlock(buffer, lineLength, buffer.Length - lineLength);
+            const int lineLength = 27 + 2; // \r\n => +2 chars
+            const int heightIndex = 21;
+            const int heightEndIndex = 27; // Exclusive
 
             //TODO: use some sort of partitioning or parallel processing
+            var buffer = new char[lineLength * linesPerBlock];
             for (var i = 0; i < DataArea / linesPerBlock; i++)
             {
-                if (i != 0) reader.ReadBlock(buffer, 0, buffer.Length);
-                
+                reader.ReadBlock(buffer, 0, buffer.Length);
+
                 for (var j = 0; j < linesPerBlock; j++)
                 {
                     var height = 0;
-                    for (var k = 0; k < firstBlockLength; k++)
+                    for (var k = heightIndex; k < heightEndIndex; k++)
                     {
+                        if (buffer[j * lineLength + k] == ' ') break;
+                        if (buffer[j * lineLength + k] == '.') continue;
                         height *= 10;
-                        height += buffer[j * lineLength + firstBlockIndex + k] - '0';
+                        height += buffer[j * lineLength + k] - '0';
                     }
-                    for (var k = 0; k < secondBlockLength; k++)
-                    {
-                        height *= 10;
-                        height += buffer[j * lineLength + secondBlockIndex + k] - '0';
-                    }
+
                     var lineI = i * linesPerBlock + j;
                     var y = (999 - lineI / 1000) * 1000;
-                    data[y + lineI % 1000] = height;
+                    data[y + lineI % 1000] = height / 100f;
                 }
             }
+
             Profiler.Stop( /*LoadData*/);
         }
         catch (FileNotFoundException)
@@ -245,8 +189,7 @@ public class TerrainData
             //TODO: Temp
             Console.WriteLine($"[WARNING]: Data tile was not found. {tile}");
         }
-
-
+        
         return data;
     }
 }

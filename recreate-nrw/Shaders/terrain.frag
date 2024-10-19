@@ -26,12 +26,11 @@ float getHeight(vec2 pos, vec2 dx, vec2 dy) {
     float sample1 = textureGrad(tiles[1].data, fraction, dx, dy).r;
     float sample2 = textureGrad(tiles[2].data, fraction, dx, dy).r;
     float sample3 = textureGrad(tiles[3].data, fraction, dx, dy).r;
-    float centimetres = tiles[0].pos == index ? sample0
-                      : tiles[1].pos == index ? sample1
-                      : tiles[2].pos == index ? sample2
-                      : tiles[3].pos == index ? sample3
-                      : 0.0;
-    return centimetres / 100.0;
+    return tiles[0].pos == index ? sample0
+         : tiles[1].pos == index ? sample1
+         : tiles[2].pos == index ? sample2
+         : tiles[3].pos == index ? sample3
+         : 0.0;
 }
 
 vec4 cubic(float v)
