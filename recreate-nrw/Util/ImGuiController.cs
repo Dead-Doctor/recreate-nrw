@@ -129,7 +129,7 @@ namespace recreate_nrw.Util
 
             _fontTexture = Texture.Load("ImGui Text Atlas", () => new TextureDataBuffer(
                 textureData,
-                width, height,
+                new Vector2i(width, height),
                 PixelFormat.Rgba, PixelType.UnsignedByte,
                 SizedInternalFormat.Rgba8,
                 TextureWrapMode.Repeat, true, false

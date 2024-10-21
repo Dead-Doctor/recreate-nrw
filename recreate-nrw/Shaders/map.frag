@@ -19,8 +19,8 @@ const float playerIndicatorRadius = 8.0;
 const float playerIndicatorAntiAliasingWidth = 1.2;
 
 const vec3 backgroundColor = vec3(0.15, 0.15, 0.15);
-const vec3 dataGridColor = vec3(0.3, 0.5, 0.8);
-const vec3 tileGridColor = vec3(0.8, 0.8, 0.8);
+const vec3 dataGridColor = vec3(0.4, 0.4, 0.4);
+const vec3 tileGridColor = vec3(0.3, 0.5, 0.8);
 const vec3 playerIndicatorColor = vec3(0.2, 0.3, 5.0);
 
 float calculatePlayerIndicator(vec2 worldPosition) {

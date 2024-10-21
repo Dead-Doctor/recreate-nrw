@@ -7,8 +7,6 @@ using Buffer = System.Buffer;
 
 namespace recreate_nrw.Ground;
 
-//TODO: fix schloss burg: 7.1496781, 51.1375123      370552.5815306349, 5666744.753800459      370.000, 5666.000
-
 public class Terrain
 {
     private const int TileSize = Coordinate.TerrainTileSize;
@@ -227,7 +225,7 @@ public class Terrain
     private record LoadedTile
     {
         public Vector2i? Pos;
-        public readonly StaticTexture Texture = new(new TextureEmptyBuffer(TileSize, TileSize,
+        public readonly StaticTexture Texture = new(new TextureEmptyBuffer(new Vector2i(TileSize),
             SizedInternalFormat.R32f, TextureWrapMode.ClampToEdge, false, false));
 
         private readonly byte[] _buffer = new byte[TileSize * TileSize * sizeof(float)];
@@ -255,7 +253,7 @@ public class Terrain
         public void CheckLoaded(Terrain terrain, int i)
         {
             if (!_loaded) return;
-            Texture.UploadImageData(new TextureDataBuffer(_buffer, TileSize, TileSize, PixelFormat.Red, PixelType.Float,
+            Texture.UploadImageData(new TextureDataBuffer(_buffer, new Vector2i(TileSize), PixelFormat.Red, PixelType.Float,
                 SizedInternalFormat.R32f, TextureWrapMode.ClampToEdge, false, false));
             _loaded = false;
             

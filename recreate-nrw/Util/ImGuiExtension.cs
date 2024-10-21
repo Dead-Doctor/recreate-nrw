@@ -15,7 +15,7 @@ public static class ImGuiExtension
         => Vector2(label, vector, out vector);
     public static bool Vector2(string label, Vector2 value, out Vector2 newValue)
     {
-        var vec = new System.Numerics.Vector2(value.X, value.Y);
+        var vec = value.ToSystem();
         var result = ImGui.DragFloat2(label, ref vec);
         newValue = new Vector2(vec.X, vec.Y);
         return result;
@@ -23,7 +23,7 @@ public static class ImGuiExtension
 
     public static bool Vector3(string label, Vector3 value, out Vector3 newValue)
     {
-        var pos = new System.Numerics.Vector3(value.X, value.Y, value.Z);
+        var pos = value.ToSystem();
         var result = ImGui.DragFloat3(label, ref pos);
         newValue = new Vector3(pos.X, pos.Y, pos.Z);
         return result;

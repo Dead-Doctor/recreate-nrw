@@ -15,16 +15,14 @@ public class Framebuffer : Texture, IDisposable
     
     private readonly int _handle;
     private StaticTexture? _texture;
-    public int Width;
-    public int Height;
+    private Vector2i _size;
     private readonly bool _resizable;
     private readonly bool _nearestFiltering;
     private readonly bool _mipmaps;
 
-    public Framebuffer(int width, int height, bool resizable, bool nearestFiltering, bool mipmaps)
+    public Framebuffer(Vector2i size, bool resizable, bool nearestFiltering, bool mipmaps)
     {
-        Width = width;
-        Height = height;
+        _size = size;
         _resizable = resizable;
         _nearestFiltering = nearestFiltering;
         _mipmaps = mipmaps;
@@ -40,23 +38,25 @@ public class Framebuffer : Texture, IDisposable
         Resources.RegisterDisposable(this);
     }
 
+    public Vector2i Size
+    {
+        get => _size;
+        set {
+            if (!_resizable)
+                throw new InvalidOperationException("Framebuffer is not resizable.");
+            if (_size == value) return;
+            _size = value;
+            CreateAttachments();
+        }
+    }
+
     private void CreateAttachments()
     {
         //TODO: optionally attach depth and stencil (render)buffer for 3d rendering
         
         if (_texture != null) Resources.Dispose(_texture);
-        _texture = CreateAttachment(new TextureEmptyBuffer(Width, Height,
-            SizedInternalFormat.Rgba8, TextureWrapMode.ClampToEdge, _nearestFiltering, _mipmaps));
+        _texture = CreateAttachment(new TextureEmptyBuffer(_size,SizedInternalFormat.Rgba8, TextureWrapMode.ClampToEdge, _nearestFiltering, _mipmaps));
         GL.NamedFramebufferTexture(_handle, FramebufferAttachment.ColorAttachment0, _texture.Handle, 0);
-    }
-
-    public void Resize(int width, int height)
-    {
-        if (!_resizable)
-            throw new InvalidOperationException("Framebuffer is not resizable.");
-        Width = width;
-        Height = height;
-        CreateAttachments();
     }
     
     public delegate void DrawToBuffer();
@@ -65,7 +65,7 @@ public class Framebuffer : Texture, IDisposable
     {
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, _handle);
         var oldViewport = Renderer.Viewport;
-        Renderer.Viewport = new Box2i(0, 0, Width, Height);
+        Renderer.Viewport = new Box2i(Vector2i.Zero, _size);
         callback();
         Renderer.Viewport = oldViewport;
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);

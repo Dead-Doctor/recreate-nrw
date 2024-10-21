@@ -1,5 +1,6 @@
 ﻿using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics;
 using recreate_nrw.Util;
 using StbImageSharp;
 
@@ -33,7 +34,7 @@ public abstract class Texture
                     _ => throw new ArgumentOutOfRangeException(image.Comp.ToString())
                 };
 
-                return new TextureDataBuffer(image.Data, image.Width, image.Height, format, PixelType.UnsignedByte,
+                return new TextureDataBuffer(image.Data, new Vector2i(image.Width, image.Height), format, PixelType.UnsignedByte,
                     SizedInternalFormat.Rgba8, textureWrapMode, false, true);
             }));
 
@@ -78,9 +79,9 @@ public class StaticTexture : Texture, IDisposable
 
         var levels = 1;
         if (textureData.Mipmaps)
-            levels += (int)Math.Floor(Math.Log2(Math.Max(textureData.Width, textureData.Height)));
+            levels += (int)Math.Floor(Math.Log2(Math.Max(textureData.Size.X, textureData.Size.Y)));
 
-        GL.TextureStorage2D(Handle, levels, textureData.InternalFormat, textureData.Width, textureData.Height);
+        GL.TextureStorage2D(Handle, levels, textureData.InternalFormat, textureData.Size.X, textureData.Size.Y);
         if (textureData is TextureDataBuffer textureDataBuffer)
             UploadImageData(textureDataBuffer);
 
@@ -89,7 +90,7 @@ public class StaticTexture : Texture, IDisposable
 
     public void UploadImageData(TextureDataBuffer textureDataBuffer)
     {
-        GL.TextureSubImage2D(Handle, 0, 0, 0, textureDataBuffer.Width, textureDataBuffer.Height,
+        GL.TextureSubImage2D(Handle, 0, 0, 0, textureDataBuffer.Size.X, textureDataBuffer.Size.Y,
             textureDataBuffer.Format,
             textureDataBuffer.Type, textureDataBuffer.Data);
 
@@ -127,8 +128,7 @@ public delegate ITextureData LazyTextureData();
 
 public interface ITextureData
 {
-    int Width { get; }
-    int Height { get; }
+    Vector2i Size { get; }
     SizedInternalFormat InternalFormat { get; }
     TextureWrapMode WrapMode { get; }
     bool NearestFiltering { get; }
@@ -136,8 +136,7 @@ public interface ITextureData
 }
 
 public readonly record struct TextureEmptyBuffer(
-    int Width,
-    int Height,
+    Vector2i Size,
     SizedInternalFormat InternalFormat,
     TextureWrapMode WrapMode,
     bool NearestFiltering,
@@ -145,8 +144,7 @@ public readonly record struct TextureEmptyBuffer(
 
 public readonly record struct TextureDataBuffer(
     byte[] Data,
-    int Width,
-    int Height,
+    Vector2i Size,
     PixelFormat Format,
     PixelType Type,
     SizedInternalFormat InternalFormat,

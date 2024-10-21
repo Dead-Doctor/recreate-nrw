@@ -6,6 +6,32 @@ namespace recreate_nrw.Util;
 public static class Calc
 {
     [PublicAPI]
+    public static System.Numerics.Vector2 ToSystem(this Vector2 v) => new(v.X, v.Y);
+    
+    [PublicAPI]
+    public static System.Numerics.Vector2 ToSystem(this Vector2i v) => new(v.X, v.Y);
+    
+    [PublicAPI]
+    public static System.Numerics.Vector3 ToSystem(this Vector3 v) => new(v.X, v.Y, v.Z);
+    
+    [PublicAPI]
+    public static System.Numerics.Vector3 ToSystem(this Vector3i v) => new(v.X, v.Y, v.Z);
+    
+    [PublicAPI]
+    public static Vector2 ToVector2(this System.Numerics.Vector2 v) => new(v.X, v.Y);
+    
+    // ReSharper disable once InconsistentNaming
+    [PublicAPI]
+    public static Vector2i ToVector2i(this System.Numerics.Vector2 v) => new((int)v.X, (int)v.Y);
+    
+    [PublicAPI]
+    public static Vector3 ToVector3(this System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
+    
+    // ReSharper disable once InconsistentNaming
+    [PublicAPI]
+    public static Vector3i ToVector3i(this System.Numerics.Vector3 v) => new((int)v.X, (int)v.Y, (int)v.Z);
+    
+    [PublicAPI]
     public static Vector2i FloorToInt(this Vector2 vec) => new((int) Math.Floor(vec.X), (int) Math.Floor(vec.Y));
 
     [PublicAPI]

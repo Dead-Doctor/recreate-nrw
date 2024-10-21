@@ -8,6 +8,7 @@ using OpenTK.Windowing.Desktop;
 using recreate_nrw.Ground;
 using recreate_nrw.Foliage;
 using recreate_nrw.Render;
+using recreate_nrw.Render.UI;
 using recreate_nrw.Util;
 
 namespace recreate_nrw;
@@ -147,7 +148,7 @@ public class Window : GameWindow
         _terrain.Window();
         _grass.Window();
         _sky.Window();
-        _map.Window();
+        _map.Window((float)(1 / _fps));
         Profiler.Window();
         InfoWindow();
         _controller.Render();

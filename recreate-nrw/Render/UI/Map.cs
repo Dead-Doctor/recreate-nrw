@@ -1,18 +1,16 @@
 ﻿using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using recreate_nrw.Render;
-using recreate_nrw.Render.UI;
 using recreate_nrw.Util;
 
-namespace recreate_nrw;
+namespace recreate_nrw.Render.UI;
 
 public class Map
 {
     private static readonly Shader Shader = new("map");
     private static readonly ShadedModel ShadedModel;
     
-    private readonly Framebuffer _framebuffer = new(200, 150, true, true, false);
+    private readonly Framebuffer _framebuffer = new(new Vector2i(200, 150), true, true, false);
     private bool _followPlayer = true;
     private Vector2 _position = Vector2.Zero;
     private float _size;
@@ -41,7 +39,7 @@ public class Map
     
     public Map()
     {
-        Zoom = 0f;
+        Zoom = TargetZoom;
     }
 
     public void Update(Camera camera)
@@ -52,10 +50,26 @@ public class Map
         Shader.SetUniform("playerDirection", camera.Yaw);
     }
 
+    private const float ZoomMin = -2f;
+    private const float ZoomMax = 5f;
+    private const float ZoomEpsilon = 0.001f;
+    private float _zoom;
+    private float _targetZoom;
+
+    private float TargetZoom
+    {
+        get => _targetZoom;
+        set => _targetZoom = Math.Clamp(value, ZoomMin, ZoomMax);
+    }
+    
     private float Zoom
     {
-        get => (float)-Math.Log2(_size / Coordinate.TerrainTileSize);
-        set => _size = Coordinate.TerrainTileSize * (float)Math.Pow(2, -value);
+        get => _zoom;
+        set
+        {
+            _zoom = value;
+            _size = Coordinate.TerrainTileSize * (float)Math.Pow(2, -value);
+        }
     }
 
     // private Vector2 Project(Vector2 worldPosition)
@@ -68,34 +82,40 @@ public class Map
     {
         _framebuffer.Use(() =>
         {
-            Shader.SetUniform("frameHeight", (float)_framebuffer.Height);
-            Shader.SetUniform("aspectRatio", (float)_framebuffer.Width / _framebuffer.Height);
+            Shader.SetUniform("frameHeight", (float)_framebuffer.Size.Y);
+            Shader.SetUniform("aspectRatio", (float)_framebuffer.Size.X / _framebuffer.Size.Y);
             Shader.SetUniform("position", _position);
             Shader.SetUniform("size", _size);
             ShadedModel.Draw();
         });
     }
 
-    public void Window()
+    public void Window(float delta)
     {
         Redraw();
         ImGui.Begin("Map");
 
-        var contentRegionAvail = ImGui.GetContentRegionAvail();
-        var newWidth = Math.Max((int)contentRegionAvail.X, 20);
-        if (newWidth != _framebuffer.Width)
-            _framebuffer.Resize(newWidth, _framebuffer.Height);
+        var nextSize = ImGui.GetContentRegionAvail() - ImGui.GetStyle().FramePadding * 2 - new System.Numerics.Vector2(0, (int)ImGui.GetFrameHeightWithSpacing());
+        _framebuffer.Size = new Vector2i((int)Math.Max(nextSize.X, 10.0), (int)Math.Max(nextSize.Y, 10.0));
         
-        ImGui.Image((IntPtr)_framebuffer.GetHandle(), contentRegionAvail with { Y = _framebuffer.Height });
+        ImGui.ImageButton((IntPtr)_framebuffer.GetHandle(), _framebuffer.Size.ToSystem());
+        if (ImGui.IsItemHovered())
+        {
+            var scroll = ImGui.GetIO().MouseWheel;
+            if (scroll != 0f) TargetZoom += scroll;
+        }
+        
+        var difference = TargetZoom - Zoom;
+        if (Math.Abs(difference) > ZoomEpsilon) 
+        {
+            Zoom += difference * delta * 3f;
+        }
+        
         if (ImGui.Button("Locate"))
             _followPlayer = true;
         ImGui.SameLine();
         if (ImGuiExtension.Vector2("Position", ref _position))
             _followPlayer = false;
-        
-        var cachedZoom = Zoom;
-        if (ImGui.DragFloat("Zoom", ref cachedZoom, 0.1f))
-            Zoom = cachedZoom;
         
         ImGui.End();
     }

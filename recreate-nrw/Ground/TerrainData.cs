@@ -66,7 +66,6 @@ public class TerrainData
     private float[] CreateTile(Vector2i pos)
     {
         Profiler.Start($"CreateTile: ({pos.X}, {pos.Y})");
-        //TODO: check if still works if any variable negative
 
         // y is inverted for data tiles. Exclusive: yStart, xEnd
         var (xStart, yStart) = Coordinate.TerrainTileIndex(pos).TerrainData();
