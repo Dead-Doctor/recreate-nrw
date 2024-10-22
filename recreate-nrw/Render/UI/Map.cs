@@ -1,6 +1,7 @@
 ﻿using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using recreate_nrw.Ground;
 using recreate_nrw.Util;
 
 namespace recreate_nrw.Render.UI;
@@ -34,6 +35,8 @@ public class Map
         Shader.AddUniform<float>("size");
         Shader.AddUniform<Vector2>("playerPosition");
         Shader.AddUniform<float>("playerDirection");
+        Shader.AddUniform("countDataTiles", TerrainData.AvailableData.Count);
+        Shader.AddTexture("dataTilesTexture", TerrainData.AvailableDataTilesTexture);
         ShadedModel = new ShadedModel(model, Shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
     }
     

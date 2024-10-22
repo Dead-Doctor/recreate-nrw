@@ -14,11 +14,15 @@ uniform float size;
 uniform vec2 playerPosition;
 uniform float playerDirection;
 
+uniform int countDataTiles;
+uniform sampler1D dataTilesTexture;
+
 const float terrainTileSize = 2048.0;
 const float playerIndicatorRadius = 8.0;
 const float playerIndicatorAntiAliasingWidth = 1.2;
 
 const vec3 backgroundColor = vec3(0.15, 0.15, 0.15);
+const vec3 dataGridFillColor = vec3(0.25, 0.25, 0.25);
 const vec3 dataGridColor = vec3(0.4, 0.4, 0.4);
 const vec3 tileGridColor = vec3(0.3, 0.5, 0.8);
 const vec3 playerIndicatorColor = vec3(0.2, 0.3, 5.0);
@@ -48,8 +52,17 @@ void main() {
     vec2 terrainTileUv = mod(worldPosition, 2048);
     float tileGrid = min(terrainTileUv.x / dFdxFine(worldPosition.x), terrainTileUv.y / dFdyFine(worldPosition.y)) > 1.0 ? 0.0 : 1.0;
     
+    vec2 terrainDataPosition = (worldPosition - vec2(-346000, 5675000)) * vec2(1, -1);
+    vec2 terrainDataTile = floor(terrainDataPosition / 1000.0);
+    float dataTileAvailale = 0.0;
+    for (int i = 0; i < countDataTiles; i++) {
+        vec2 tilePosition = texelFetch(dataTilesTexture, i, 0).xy;
+        dataTileAvailale = terrainDataTile == tilePosition ? 1.0 : dataTileAvailale;
+    }
+    
     vec3 backgroundMix = backgroundColor;
-    vec3 dataGridMix = mix(backgroundMix, dataGridColor, dataGrid);
+    vec3 dataGridFillMix = mix(backgroundMix, dataGridFillColor, dataTileAvailale);
+    vec3 dataGridMix = mix(dataGridFillMix, dataGridColor, dataGrid);
     vec3 tileGridMix = mix(dataGridMix, tileGridColor, tileGrid);
     vec3 indicatorMix = mix(tileGridMix, playerIndicatorColor, calculatePlayerIndicator(worldPosition));
     FragColor = vec4(indicatorMix, 1.0);

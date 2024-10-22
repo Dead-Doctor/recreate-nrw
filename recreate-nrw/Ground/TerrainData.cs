@@ -1,5 +1,7 @@
 ﻿using System.IO.Compression;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using recreate_nrw.Render;
 using recreate_nrw.Util;
 
 namespace recreate_nrw.Ground;
@@ -37,33 +39,59 @@ namespace recreate_nrw.Ground;
 //                    |                    |
 
 //TODO: do as much asynchronous as possible
-public class TerrainData
+public static class TerrainData
 {
     private const int DataSize = Coordinate.TerrainDataSize;
     private const int DataArea = DataSize * DataSize;
     private const int TileSize = Coordinate.TerrainTileSize;
     private const int TileArea = TileSize * TileSize;
-    
-    private readonly List<Vector2i> _savedTiles = new();
-    private readonly Dictionary<Vector2i, float[]> _tileCache = new();
-    private readonly AsyncResourceLoader<Vector2i, float[]> _tileLoader = new();
-    private readonly AsyncResourceLoaderCached<Vector2i, float[]> _dataLoaderCached = new();
+
+    public static readonly List<Vector2i> AvailableData = new();
+    public static Texture AvailableDataTilesTexture { get; private set; }
+
+    private static readonly List<Vector2i> SavedTiles = new();
+    private static readonly Dictionary<Vector2i, float[]> TileCache = new();
+    private static readonly AsyncResourceLoader<Vector2i, float[]> TileLoader = new();
+    private static readonly AsyncResourceLoaderCached<Vector2i, float[]> DataLoaderCached = new();
+
+    static TerrainData()
+    {
+        // file: dgm1_32_{tile.X}_{tile.Y}_1_nw.xyz.gz
+        const string directory = "Data/Raw/";
+        const string prefix = directory + "dgm1";
+        foreach (var file in Directory.EnumerateFiles(directory))
+        {
+            var parts = file.Split("_");
+            if (parts.Length != 6 || parts[0] != prefix) continue;
+            var position = new Vector2i(int.Parse(parts[2]), int.Parse(parts[3]));
+            AvailableData.Add(position);
+            Console.WriteLine($"[TerrainData]: Found data tile X: {position.X}, Y: {position.Y}");
+        }
+        var data = new byte[AvailableData.Count * 2 * sizeof(int)];
+        for (var i = 0; i < AvailableData.Count; i++)
+        {
+            Array.Copy(BitConverter.GetBytes((float)AvailableData[i].X), 0, data, (i * 2 + 0) * sizeof(int), sizeof(int));
+            Array.Copy(BitConverter.GetBytes((float)AvailableData[i].Y), 0, data, (i * 2 + 1) * sizeof(int), sizeof(int));
+        }
+        AvailableDataTilesTexture = new StaticTexture(new TextureInfo1D(new TextureData(data, PixelFormat.Rg, PixelType.Float), SizedInternalFormat.Rg32f, AvailableData.Count * 2));
+    }
 
     //TODO: might crash when called twice for same tile in quick succession for the first time
-    public async Task<float[]> GetTile(Vector2i pos)
+    public static async Task<float[]> GetTile(Vector2i pos)
     {
-        lock (_tileCache)
-            if (_tileCache.TryGetValue(pos, out var value)) return value;
-        
-        return await _tileLoader.LoadResourceAsync(pos, () =>
+        lock (TileCache)
+            if (TileCache.TryGetValue(pos, out var value))
+                return value;
+
+        return await TileLoader.LoadResourceAsync(pos, () =>
         {
-            var tile = _savedTiles.Contains(pos) ? LoadTile(pos) : CreateTile(pos);
-            lock (_tileCache) _tileCache.Add(pos, tile);
+            var tile = SavedTiles.Contains(pos) ? LoadTile(pos) : CreateTile(pos);
+            lock (TileCache) TileCache.Add(pos, tile);
             return tile;
         });
     }
 
-    private float[] CreateTile(Vector2i pos)
+    private static float[] CreateTile(Vector2i pos)
     {
         Profiler.Start($"CreateTile: ({pos.X}, {pos.Y})");
 
@@ -119,19 +147,19 @@ public class TerrainData
         return pos.Modulo(DataSize);
     }
 
-    private float[] LoadTile(Vector2i pos)
+    private static float[] LoadTile(Vector2i pos)
     {
         throw new NotImplementedException("Not implemented yet!");
     }
 
-    private void SaveTile(Vector2i pos, float[] tile)
+    private static void SaveTile(Vector2i pos, float[] tile)
     {
         //TODO: Not implemented yet!
         // _savedTiles.Add(pos);
     }
-    
+
     //TODO: delete after all tiles have been created using this datatile
-    private async Task<float[]> GetData(Vector2i tile) => await _dataLoaderCached.Get(tile, LoadData);
+    private static async Task<float[]> GetData(Vector2i tile) => await DataLoaderCached.Get(tile, LoadData);
 
     /// <summary>
     /// Time (avg for 9x, changes additional to previous):
@@ -143,52 +171,50 @@ public class TerrainData
     private static float[] LoadData(Vector2i tile)
     {
         var data = new float[DataArea];
-        try
-        {
-            var path = $"Data/Raw/dgm1_32_{tile.X}_{tile.Y}_1_nw.xyz.gz";
-
-            using var stream = File.OpenRead(path);
-            using var decompressed = new GZipStream(stream, CompressionMode.Decompress);
-            using var reader = new StreamReader(decompressed);
-
-            Profiler.Start($"LoadData: ({tile.X}, {tile.Y})");
-            
-            const int linesPerBlock = 1000 / 4;
-            const int lineLength = 27 + 2; // \r\n => +2 chars
-            const int heightIndex = 21;
-            const int heightEndIndex = 27; // Exclusive
-
-            //TODO: use some sort of partitioning or parallel processing
-            var buffer = new char[lineLength * linesPerBlock];
-            for (var i = 0; i < DataArea / linesPerBlock; i++)
-            {
-                reader.ReadBlock(buffer, 0, buffer.Length);
-
-                for (var j = 0; j < linesPerBlock; j++)
-                {
-                    var height = 0;
-                    for (var k = heightIndex; k < heightEndIndex; k++)
-                    {
-                        if (buffer[j * lineLength + k] == ' ') break;
-                        if (buffer[j * lineLength + k] == '.') continue;
-                        height *= 10;
-                        height += buffer[j * lineLength + k] - '0';
-                    }
-
-                    var lineI = i * linesPerBlock + j;
-                    var y = (999 - lineI / 1000) * 1000;
-                    data[y + lineI % 1000] = height / 100f;
-                }
-            }
-
-            Profiler.Stop( /*LoadData*/);
-        }
-        catch (FileNotFoundException)
+        if (!AvailableData.Contains(tile))
         {
             //TODO: Temp
             Console.WriteLine($"[WARNING]: Data tile was not found. {tile}");
+            return data;
         }
         
+        var path = $"Data/Raw/dgm1_32_{tile.X}_{tile.Y}_1_nw.xyz.gz";
+        
+        using var stream = File.OpenRead(path);
+        using var decompressed = new GZipStream(stream, CompressionMode.Decompress);
+        using var reader = new StreamReader(decompressed);
+
+        Profiler.Start($"LoadData: ({tile.X}, {tile.Y})");
+
+        const int linesPerBlock = 1000 / 4;
+        const int lineLength = 27 + 2; // \r\n => +2 chars
+        const int heightIndex = 21;
+        const int heightEndIndex = 27; // Exclusive
+
+        //TODO: use some sort of partitioning or parallel processing
+        var buffer = new char[lineLength * linesPerBlock];
+        for (var i = 0; i < DataArea / linesPerBlock; i++)
+        {
+            reader.ReadBlock(buffer, 0, buffer.Length);
+
+            for (var j = 0; j < linesPerBlock; j++)
+            {
+                var height = 0;
+                for (var k = heightIndex; k < heightEndIndex; k++)
+                {
+                    if (buffer[j * lineLength + k] == ' ') break;
+                    if (buffer[j * lineLength + k] == '.') continue;
+                    height *= 10;
+                    height += buffer[j * lineLength + k] - '0';
+                }
+
+                var lineI = i * linesPerBlock + j;
+                var y = (999 - lineI / 1000) * 1000;
+                data[y + lineI % 1000] = height / 100f;
+            }
+        }
+
+        Profiler.Stop( /*LoadData*/);
         return data;
     }
 }

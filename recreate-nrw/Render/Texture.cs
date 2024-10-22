@@ -6,14 +6,32 @@ using StbImageSharp;
 
 namespace recreate_nrw.Render;
 
+/// <summary>
+/// The Texture class represents any kind of OpenGL-object which has a texture handle and can be used as one.
+/// At the moment this is either an OpenGl-Texture or an OpenGL-Framebuffer
+/// </summary>
 public abstract class Texture
 {
     private static readonly Texture?[] ActiveInstances = new Texture?[TextureUnit.Texture31 - TextureUnit.Texture0 + 1];
 
+    /// <summary>
+    /// Creates an OpenGL-Texture from the lazy texture source and caches it but only if this texture has not been created before
+    /// </summary>
+    /// <param name="id">Unique identifier</param>
+    /// <param name="source">Lazy loaded texture source</param>
+    /// <returns>The created or retrieved texture object</returns>
     [PublicAPI]
     public static Texture Load(string id, LazyTextureData source) =>
         Resources.GetCached(id, Source.Memory, _ => new StaticTexture(source()));
 
+    /// <summary>
+    /// Creates an OpenGL-Texture from the image file and caches it but only if this image has not been loaded before
+    /// </summary>
+    /// <param name="texturePath">Path to image file</param>
+    /// <param name="textureWrapMode">The behaviour of the texture if sampled outside the zero to one range</param>
+    /// <returns>The created or retrieved texture object</returns>
+    /// <exception cref="ArgumentException">Gets thrown when the image has an invalid color format</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Gets thrown when the image has an unimplemented color format</exception>
     [PublicAPI]
     public static Texture LoadImageFile(string texturePath, TextureWrapMode textureWrapMode = TextureWrapMode.Repeat) =>
         Load(texturePath, () =>
@@ -34,8 +52,8 @@ public abstract class Texture
                     _ => throw new ArgumentOutOfRangeException(image.Comp.ToString())
                 };
 
-                return new TextureDataBuffer(image.Data, new Vector2i(image.Width, image.Height), format, PixelType.UnsignedByte,
-                    SizedInternalFormat.Rgba8, textureWrapMode, false, true);
+                return new TextureInfo2D(new TextureData(image.Data, format, PixelType.UnsignedByte),
+                    SizedInternalFormat.Rgba8, new Vector2i(image.Width, image.Height), textureWrapMode, false, true);
             }));
 
     public void Activate(int i)
@@ -60,42 +78,67 @@ public class StaticTexture : Texture, IDisposable
 {
     public readonly int Handle;
 
-    public StaticTexture(ITextureData textureData)
+    public StaticTexture(ITextureInfo textureInfo)
     {
-        GL.CreateTextures(TextureTarget.Texture2D, 1, out Handle);
+        var target = textureInfo switch
+        {
+            ITextureInfo1D => TextureTarget.Texture1D,
+            ITextureInfo2D => TextureTarget.Texture2D,
+            _ => throw new ArgumentException("Invalid texture target", nameof(textureInfo))
+        };
+        GL.CreateTextures(target, 1, out Handle);
 
-        var minFilter = textureData.NearestFiltering
-            ? textureData.Mipmaps ? TextureMinFilter.NearestMipmapNearest : TextureMinFilter.Nearest
-            : textureData.Mipmaps
-                ? TextureMinFilter.LinearMipmapLinear
-                : TextureMinFilter.Linear;
-        var magFilter = textureData.NearestFiltering ? TextureMagFilter.Nearest : TextureMagFilter.Linear;
+        switch (textureInfo)
+        {
+            case ITextureInfo1D texture1D:
+                GL.TextureStorage1D(Handle, 1, textureInfo.InternalFormat, texture1D.Size);
+                break;
+            case ITextureInfo2D texture2D:
+            {
+                var minFilter = texture2D.NearestFiltering
+                    ? texture2D.Mipmaps ? TextureMinFilter.NearestMipmapNearest : TextureMinFilter.Nearest
+                    : texture2D.Mipmaps
+                        ? TextureMinFilter.LinearMipmapLinear
+                        : TextureMinFilter.Linear;
+                var magFilter = texture2D.NearestFiltering ? TextureMagFilter.Nearest : TextureMagFilter.Linear;
 
-        GL.TextureParameter(Handle, TextureParameterName.TextureMinFilter, (int)minFilter);
-        GL.TextureParameter(Handle, TextureParameterName.TextureMagFilter, (int)magFilter);
+                GL.TextureParameter(Handle, TextureParameterName.TextureMinFilter, (int)minFilter);
+                GL.TextureParameter(Handle, TextureParameterName.TextureMagFilter, (int)magFilter);
 
-        GL.TextureParameter(Handle, TextureParameterName.TextureWrapS, (int)textureData.WrapMode);
-        GL.TextureParameter(Handle, TextureParameterName.TextureWrapT, (int)textureData.WrapMode);
+                GL.TextureParameter(Handle, TextureParameterName.TextureWrapS, (int)texture2D.WrapMode);
+                GL.TextureParameter(Handle, TextureParameterName.TextureWrapT, (int)texture2D.WrapMode);
 
-        var levels = 1;
-        if (textureData.Mipmaps)
-            levels += (int)Math.Floor(Math.Log2(Math.Max(textureData.Size.X, textureData.Size.Y)));
+                var levels = 1;
+                if (texture2D.Mipmaps)
+                    levels += (int)Math.Floor(Math.Log2(Math.Max(texture2D.Size.X, texture2D.Size.Y)));
 
-        GL.TextureStorage2D(Handle, levels, textureData.InternalFormat, textureData.Size.X, textureData.Size.Y);
-        if (textureData is TextureDataBuffer textureDataBuffer)
-            UploadImageData(textureDataBuffer);
+                GL.TextureStorage2D(Handle, levels, textureInfo.InternalFormat, texture2D.Size.X, texture2D.Size.Y);
+                break;
+            }
+        }
+
+        if (textureInfo.Data is not null)
+            UploadImageData(textureInfo);
 
         Resources.RegisterDisposable(this);
     }
 
-    public void UploadImageData(TextureDataBuffer textureDataBuffer)
+    public void UploadImageData(ITextureInfo textureData)
     {
-        GL.TextureSubImage2D(Handle, 0, 0, 0, textureDataBuffer.Size.X, textureDataBuffer.Size.Y,
-            textureDataBuffer.Format,
-            textureDataBuffer.Type, textureDataBuffer.Data);
-
-        if (textureDataBuffer.Mipmaps)
-            GenerateMipmap();
+        var data = textureData.Data ?? throw new ArgumentException("Supplied texture data was null.", nameof(textureData));
+        switch (textureData)
+        {
+            case ITextureInfo1D texture1D:
+                GL.TextureSubImage1D(Handle, 0, 0, texture1D.Size,
+                    data.Format, data.Type, data.Data);
+                break;
+            case ITextureInfo2D texture2D:
+                GL.TextureSubImage2D(Handle, 0, 0, 0, texture2D.Size.X, texture2D.Size.Y,
+                    data.Format, data.Type, data.Data);
+                if (texture2D.Mipmaps)
+                    GenerateMipmap();
+                break;
+        }
     }
 
     public void GenerateMipmap()
@@ -124,30 +167,40 @@ public class StaticTexture : Texture, IDisposable
     }
 }
 
-public delegate ITextureData LazyTextureData();
+public delegate ITextureInfo LazyTextureData();
 
-public interface ITextureData
+public interface ITextureInfo
+{
+    TextureData? Data { get; }
+    TextureTarget TextureTarget { get; }
+    SizedInternalFormat InternalFormat { get; }
+}
+
+public interface ITextureInfo1D : ITextureInfo
+{
+    int Size { get; }
+}
+
+public interface ITextureInfo2D : ITextureInfo
 {
     Vector2i Size { get; }
-    SizedInternalFormat InternalFormat { get; }
     TextureWrapMode WrapMode { get; }
+    
     bool NearestFiltering { get; }
     bool Mipmaps { get; }
 }
 
-public readonly record struct TextureEmptyBuffer(
-    Vector2i Size,
-    SizedInternalFormat InternalFormat,
-    TextureWrapMode WrapMode,
-    bool NearestFiltering,
-    bool Mipmaps) : ITextureData;
+public readonly record struct TextureInfo1D(TextureData? Data, SizedInternalFormat InternalFormat, int Size) : ITextureInfo1D
+{
+    public TextureTarget TextureTarget => TextureTarget.Texture1D;
+}
 
-public readonly record struct TextureDataBuffer(
+public readonly record struct TextureInfo2D(TextureData? Data, SizedInternalFormat InternalFormat, Vector2i Size, TextureWrapMode WrapMode, bool NearestFiltering, bool Mipmaps) : ITextureInfo2D
+{
+    public TextureTarget TextureTarget => TextureTarget.Texture2D;
+}
+
+public readonly record struct TextureData(
     byte[] Data,
-    Vector2i Size,
     PixelFormat Format,
-    PixelType Type,
-    SizedInternalFormat InternalFormat,
-    TextureWrapMode WrapMode,
-    bool NearestFiltering,
-    bool Mipmaps) : ITextureData;
+    PixelType Type);

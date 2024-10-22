@@ -10,10 +10,7 @@ namespace recreate_nrw.Ground;
 public class Terrain
 {
     private const int TileSize = Coordinate.TerrainTileSize;
-
-    //TODO: load tiles
-    private readonly TerrainData _data = new();
-
+    
     private int _n = 32;
     private int _renderDistance;
     // ReSharper disable once InconsistentNaming
@@ -194,7 +191,7 @@ public class Terrain
         var tile = _loadedTiles[i];
         if (tile.Pos == tilePos) return;
 
-        tile.MoveTile(_data, tilePos);
+        tile.MoveTile(tilePos);
     }
 
     public void Window()
@@ -225,8 +222,8 @@ public class Terrain
     private record LoadedTile
     {
         public Vector2i? Pos;
-        public readonly StaticTexture Texture = new(new TextureEmptyBuffer(new Vector2i(TileSize),
-            SizedInternalFormat.R32f, TextureWrapMode.ClampToEdge, false, false));
+        public readonly StaticTexture Texture = new(new TextureInfo2D(null, SizedInternalFormat.R32f,
+            new Vector2i(TileSize), TextureWrapMode.ClampToEdge, false, false));
 
         private readonly byte[] _buffer = new byte[TileSize * TileSize * sizeof(float)];
         private bool _loaded = false;
@@ -240,12 +237,12 @@ public class Terrain
             stream.WriteByte((byte)((height / 100.0 - 30.0)*8.0));
         }*/
 
-        public async void MoveTile(TerrainData data, Vector2i pos)
+        public async void MoveTile(Vector2i pos)
         {
             Pos = pos;
             
             _loaded = false;
-            var tile = await data.GetTile(pos);
+            var tile = await TerrainData.GetTile(pos);
             Buffer.BlockCopy(tile, 0, _buffer, 0, _buffer.Length);
             _loaded = true;
         }
@@ -253,8 +250,7 @@ public class Terrain
         public void CheckLoaded(Terrain terrain, int i)
         {
             if (!_loaded) return;
-            Texture.UploadImageData(new TextureDataBuffer(_buffer, new Vector2i(TileSize), PixelFormat.Red, PixelType.Float,
-                SizedInternalFormat.R32f, TextureWrapMode.ClampToEdge, false, false));
+            Texture.UploadImageData(new TextureInfo2D(new TextureData(_buffer, PixelFormat.Red, PixelType.Float), SizedInternalFormat.R32f, new Vector2i(TileSize), TextureWrapMode.ClampToEdge, false, false));
             _loaded = false;
             
             foreach (var shader in terrain._dependentShaders)
@@ -265,7 +261,7 @@ public class Terrain
     public float? GetHeightAt(Vector2i pos)
     {
         var coordinate = Coordinate.TerrainTile(pos);
-        var task = _data.GetTile(coordinate.TerrainTileIndex());
+        var task = TerrainData.GetTile(coordinate.TerrainTileIndex());
         if (!task.IsCompletedSuccessfully) return null;
         var tile = task.Result;
         var offset = coordinate.TerrainTile().Modulo(TileSize);

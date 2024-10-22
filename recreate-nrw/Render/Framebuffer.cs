@@ -8,10 +8,9 @@ public class Framebuffer : Texture, IDisposable
 {
     private static int _framebufferAttachments;
 
-    private static StaticTexture CreateAttachment(TextureEmptyBuffer data) =>
+    private static StaticTexture CreateAttachment(TextureInfo2D data) =>
         Resources.GetCached($"framebufferAttachment{_framebufferAttachments++}", Source.Memory,
             _ => new StaticTexture(data));
-    
     
     private readonly int _handle;
     private StaticTexture? _texture;
@@ -55,7 +54,7 @@ public class Framebuffer : Texture, IDisposable
         //TODO: optionally attach depth and stencil (render)buffer for 3d rendering
         
         if (_texture != null) Resources.Dispose(_texture);
-        _texture = CreateAttachment(new TextureEmptyBuffer(_size,SizedInternalFormat.Rgba8, TextureWrapMode.ClampToEdge, _nearestFiltering, _mipmaps));
+        _texture = CreateAttachment(new TextureInfo2D(null, SizedInternalFormat.Rgba8, _size, TextureWrapMode.ClampToEdge, _nearestFiltering, _mipmaps));
         GL.NamedFramebufferTexture(_handle, FramebufferAttachment.ColorAttachment0, _texture.Handle, 0);
     }
     
