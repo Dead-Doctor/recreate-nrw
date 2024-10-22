@@ -126,15 +126,16 @@ public class StaticTexture : Texture, IDisposable
     public void UploadImageData(ITextureInfo textureData)
     {
         var data = textureData.Data ?? throw new ArgumentException("Supplied texture data was null.", nameof(textureData));
+        dynamic dynamicData = data.Data;
         switch (textureData)
         {
             case ITextureInfo1D texture1D:
                 GL.TextureSubImage1D(Handle, 0, 0, texture1D.Size,
-                    data.Format, data.Type, data.Data);
+                    data.Format, data.Type, dynamicData);
                 break;
             case ITextureInfo2D texture2D:
                 GL.TextureSubImage2D(Handle, 0, 0, 0, texture2D.Size.X, texture2D.Size.Y,
-                    data.Format, data.Type, data.Data);
+                    data.Format, data.Type, dynamicData);
                 if (texture2D.Mipmaps)
                     GenerateMipmap();
                 break;
@@ -172,7 +173,6 @@ public delegate ITextureInfo LazyTextureData();
 public interface ITextureInfo
 {
     TextureData? Data { get; }
-    TextureTarget TextureTarget { get; }
     SizedInternalFormat InternalFormat { get; }
 }
 
@@ -190,17 +190,20 @@ public interface ITextureInfo2D : ITextureInfo
     bool Mipmaps { get; }
 }
 
-public readonly record struct TextureInfo1D(TextureData? Data, SizedInternalFormat InternalFormat, int Size) : ITextureInfo1D
-{
-    public TextureTarget TextureTarget => TextureTarget.Texture1D;
-}
+public readonly record struct TextureInfo1D(
+    TextureData? Data,
+    SizedInternalFormat InternalFormat,
+    int Size) : ITextureInfo1D;
 
-public readonly record struct TextureInfo2D(TextureData? Data, SizedInternalFormat InternalFormat, Vector2i Size, TextureWrapMode WrapMode, bool NearestFiltering, bool Mipmaps) : ITextureInfo2D
-{
-    public TextureTarget TextureTarget => TextureTarget.Texture2D;
-}
+public readonly record struct TextureInfo2D(
+    TextureData? Data,
+    SizedInternalFormat InternalFormat,
+    Vector2i Size,
+    TextureWrapMode WrapMode,
+    bool NearestFiltering,
+    bool Mipmaps) : ITextureInfo2D;
 
 public readonly record struct TextureData(
-    byte[] Data,
+    Array Data,
     PixelFormat Format,
     PixelType Type);

@@ -67,13 +67,13 @@ public static class TerrainData
             AvailableData.Add(position);
             Console.WriteLine($"[TerrainData]: Found data tile X: {position.X}, Y: {position.Y}");
         }
-        var data = new byte[AvailableData.Count * 2 * sizeof(int)];
+        var data = new float[AvailableData.Count * 2];
         for (var i = 0; i < AvailableData.Count; i++)
         {
-            Array.Copy(BitConverter.GetBytes((float)AvailableData[i].X), 0, data, (i * 2 + 0) * sizeof(int), sizeof(int));
-            Array.Copy(BitConverter.GetBytes((float)AvailableData[i].Y), 0, data, (i * 2 + 1) * sizeof(int), sizeof(int));
+            data[i * 2 + 0] = AvailableData[i].X;
+            data[i * 2 + 1] = AvailableData[i].Y;
         }
-        AvailableDataTilesTexture = new StaticTexture(new TextureInfo1D(new TextureData(data, PixelFormat.Rg, PixelType.Float), SizedInternalFormat.Rg32f, AvailableData.Count * 2));
+        AvailableDataTilesTexture = new StaticTexture(new TextureInfo1D(new TextureData(data, PixelFormat.Rg, PixelType.Float), SizedInternalFormat.Rg32f, AvailableData.Count));
     }
 
     //TODO: might crash when called twice for same tile in quick succession for the first time
@@ -216,5 +216,15 @@ public static class TerrainData
 
         Profiler.Stop( /*LoadData*/);
         return data;
+    }
+
+    public static float? GetHeightAt(Vector2i pos)
+    {
+        var coordinate = Coordinate.TerrainTile(pos);
+        var task = GetTile(coordinate.TerrainTileIndex());
+        if (!task.IsCompletedSuccessfully) return null;
+        var tile = task.Result;
+        var offset = coordinate.TerrainTile().Modulo(TileSize);
+        return tile[offset.Y * TileSize + offset.X];
     }
 }

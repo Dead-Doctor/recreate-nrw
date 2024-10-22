@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Collections.Concurrent;
+using System.Reflection;
 using JetBrains.Annotations;
 
 namespace recreate_nrw.Util;
@@ -70,41 +71,32 @@ public enum Source
 
 public class AsyncResourceLoader<TId, TValue> where TId : notnull
 {
-    private readonly Dictionary<TId, Task<TValue>> _loadingTasks = new();
-
+    private readonly ConcurrentDictionary<TId, Task<TValue>> _loadingTasks = new();
+    
     public Task<TValue> LoadResourceAsync(TId id, Func<TValue> loader)
     {
-        lock (_loadingTasks)
+        return _loadingTasks.GetOrAdd(id, _ => Task.Factory.StartNew(() =>
         {
-            if (_loadingTasks.TryGetValue(id, out var task)) return task;
-
-            var newTask = Task.Factory.StartNew(() =>
-            {
-                var value = loader();
-                lock (_loadingTasks) _loadingTasks.Remove(id);
-                return value;
-            }, TaskCreationOptions.LongRunning);
-                
-            _loadingTasks.Add(id, newTask);
-            return newTask;
-        }
+            var value = loader();
+            _loadingTasks.TryRemove(id, out var _);
+            return value;
+        }, TaskCreationOptions.LongRunning));
     }
 }
     
 public class AsyncResourceLoaderCached<TId, TValue> where TId : notnull
 {
-    private readonly Dictionary<TId, TValue> _cache = new();
+    private readonly ConcurrentDictionary<TId, TValue> _cache = new();
     private readonly AsyncResourceLoader<TId, TValue> _resourceLoader = new();
 
     public async Task<TValue> Get(TId id, Func<TId, TValue> loader)
     {
-        lock (_cache)
-            if (_cache.TryGetValue(id, out var value)) return value;
+        if (_cache.TryGetValue(id, out var cachedValue)) return cachedValue;
 
         return await _resourceLoader.LoadResourceAsync(id, () =>
         {
             var value = loader(id);
-            lock (_cache) _cache.Add(id, value);
+            if (!_cache.TryAdd(id, value)) Console.WriteLine($"[WARNING]: An already cached resource was loaded for a second time ({id}).");
             return value;
         });
     }

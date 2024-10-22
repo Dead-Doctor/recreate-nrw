@@ -211,7 +211,7 @@ public class Window : GameWindow
         if (ImGui.Button("Schloss Burg"))
             _camera.Position = Coordinate.Epsg25832(new Vector2(370552.5815306349f, 5666744.753800459f), _camera.Position.Y).World();
 
-        ImGui.Value("Terrain Height", _terrain.GetHeightAt(cameraPosition.TerrainTile()) ?? float.NaN);
+        ImGui.Value("Terrain Height", TerrainData.GetHeightAt(cameraPosition.TerrainTile()) ?? float.NaN);
         
         if (ImGui.Checkbox("Render Terrain Model", ref _renderTerrainModel))
         {

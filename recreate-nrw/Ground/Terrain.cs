@@ -225,8 +225,7 @@ public class Terrain
         public readonly StaticTexture Texture = new(new TextureInfo2D(null, SizedInternalFormat.R32f,
             new Vector2i(TileSize), TextureWrapMode.ClampToEdge, false, false));
 
-        private readonly byte[] _buffer = new byte[TileSize * TileSize * sizeof(float)];
-        private bool _loaded = false;
+        private float[]? _buffer;
 
         // Export as grayscale heightmap
         /*var path = $"Debug/tile_{Pos.X}_{Pos.Y}.pgm";
@@ -240,31 +239,21 @@ public class Terrain
         public async void MoveTile(Vector2i pos)
         {
             Pos = pos;
-            
-            _loaded = false;
-            var tile = await TerrainData.GetTile(pos);
-            Buffer.BlockCopy(tile, 0, _buffer, 0, _buffer.Length);
-            _loaded = true;
+            _buffer = null;
+            _buffer = await TerrainData.GetTile(pos);
         }
 
         public void CheckLoaded(Terrain terrain, int i)
         {
-            if (!_loaded) return;
-            Texture.UploadImageData(new TextureInfo2D(new TextureData(_buffer, PixelFormat.Red, PixelType.Float), SizedInternalFormat.R32f, new Vector2i(TileSize), TextureWrapMode.ClampToEdge, false, false));
-            _loaded = false;
+            if (_buffer is null) return;
+            Texture.UploadImageData(new TextureInfo2D(
+                new TextureData(_buffer!, PixelFormat.Red, PixelType.Float),
+                SizedInternalFormat.R32f, new Vector2i(TileSize),
+                TextureWrapMode.ClampToEdge, false, false)
+            );
             
             foreach (var shader in terrain._dependentShaders)
                 shader.SetUniform($"tiles[{i}].pos", Pos!.Value.ToVector2());
         }
-    }
-
-    public float? GetHeightAt(Vector2i pos)
-    {
-        var coordinate = Coordinate.TerrainTile(pos);
-        var task = TerrainData.GetTile(coordinate.TerrainTileIndex());
-        if (!task.IsCompletedSuccessfully) return null;
-        var tile = task.Result;
-        var offset = coordinate.TerrainTile().Modulo(TileSize);
-        return tile[offset.Y * TileSize + offset.X];
     }
 }

@@ -123,8 +123,8 @@ namespace recreate_nrw.Util
         private void RecreateFontDeviceTexture()
         {
             var io = ImGui.GetIO();
-            io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out var width, out var height, out _);
-            var textureData = new byte[width * height * sizeof(int)];
+            io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out var width, out var height, out var sizeOfPixel);
+            var textureData = new byte[width * height * sizeOfPixel];
             Marshal.Copy(pixels, textureData, 0, textureData.Length);
 
             _fontTexture = Texture.Load("ImGui Text Atlas", () => new TextureInfo2D(
