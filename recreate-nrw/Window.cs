@@ -19,14 +19,13 @@ public class Window : GameWindow
 
     private readonly TerrainModel _terrainModel;
 
-    // = null! equivalent to Kotlin's lateinit
     // private TestScene _scene = null!;
     private ImGuiController _controller = null!;
     private Camera _camera = null!;
     private Controls _controls = null!;
     private Shader _terrainModelShader = null!;
     private ShadedModel _shadedTerrainModel = null!;
-    private bool _renderTerrainModel = false;
+    private bool _renderTerrainModel;
 
     private Terrain _terrain = null!;
     private Fern _fern = null!;

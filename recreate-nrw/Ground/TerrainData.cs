@@ -96,7 +96,7 @@ public static class TerrainData
 
     private static float[] CreateTile(Vector2i pos)
     {
-        var task = Profiler.Create($"CreateTile: ({pos.X}, {pos.Y})");
+        var createTileTask = Profiler.Create($"CreateTile: ({pos.X}, {pos.Y})");
 
         // y is inverted for data tiles. Exclusive: yStart, xEnd
         var (xStart, yStart) = Coordinate.TerrainTileIndex(pos).TerrainData();
@@ -113,7 +113,7 @@ public static class TerrainData
         {
             for (var x = 0; x < dataTileColumns; x++)
             {
-                dataTiles[y * dataTileColumns + x] = GetData(topLeft + new Vector2i(x, y), task);
+                dataTiles[y * dataTileColumns + x] = GetData(topLeft + new Vector2i(x, y), createTileTask);
             }
         }
 
@@ -140,7 +140,7 @@ public static class TerrainData
             }
         }
 
-        task.Stop( /*CreateTile*/);
+        createTileTask.Stop();
         SaveTile(pos, tile);
         return tile;
     }
@@ -188,19 +188,21 @@ public static class TerrainData
         using var decompressed = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(decompressed);
 
-        var subTask = task.Start($"LoadData: ({tile.X}, {tile.Y})");
+        var loadingDataTask = task.Start($"LoadData: ({tile.X}, {tile.Y})");
 
-        const int linesPerBlock = 1000 / 4;
+        const int blocks = 250;
+        const int linesPerBlock = DataArea / blocks;
         const int lineLength = 27 + 2; // \r\n => +2 chars
+        const int bufferSize = lineLength * linesPerBlock;
         const int heightIndex = 21;
         const int heightEndIndex = 27; // Exclusive
 
         //TODO: use some sort of partitioning or parallel processing
-        var buffer = new char[lineLength * linesPerBlock];
-        for (var i = 0; i < DataArea / linesPerBlock; i++)
+        var buffer = new char[bufferSize];
+        for (var i = 0; i < blocks; i++)
         {
             reader.ReadBlock(buffer, 0, buffer.Length);
-
+            
             for (var j = 0; j < linesPerBlock; j++)
             {
                 var height = 0;
@@ -218,7 +220,7 @@ public static class TerrainData
             }
         }
 
-        subTask.Stop( /*LoadData*/);
+        loadingDataTask.Stop();
         return data;
     }
 

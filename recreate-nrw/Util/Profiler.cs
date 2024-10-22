@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Numerics;
 using ImGuiNET;
@@ -11,12 +12,17 @@ public class Profiler
     private static readonly object Lock = new();
     private static readonly Stopwatch Stopwatch = Stopwatch.StartNew();
     private static readonly ConcurrentBag<int> UniqueThreads = new();
-    private static readonly Profiler RootTask = new("root");
+    private static readonly ConcurrentDictionary<Profiler, bool> RootTasks = new();
 
     [PublicAPI]
     public static Profiler Create(string name)
     {
-        return RootTask.Start(name);
+        lock (Lock)
+        {
+            var task = new Profiler(name);
+            RootTasks.TryAdd(task, false);
+            return task;
+        }
     }
 
     private readonly string _name;
@@ -24,7 +30,7 @@ public class Profiler
     private readonly TimeSpan _startTime;
     private TimeSpan? _endTime;
 
-    private readonly ConcurrentBag<Profiler> _subTasks = new();
+    private readonly ConcurrentDictionary<int, ConcurrentBag<Profiler>> _subTasks = new();
 
     private Profiler(string name)
     {
@@ -39,7 +45,7 @@ public class Profiler
         lock (Lock)
         {
             var task = new Profiler(name);
-            _subTasks.Add(task);
+            _subTasks.GetOrAdd(task._thread, _ => new ConcurrentBag<Profiler>()).Add(task);
             return task;
         }
     }
@@ -51,55 +57,85 @@ public class Profiler
             _endTime = Stopwatch.Elapsed;
         }
     }
-    
-    private const float ButtonHeight = 20.0f;
-    private const float PaddingY = 3.0f;
-    private const float TotalRowHeight = ButtonHeight + PaddingY;
-    private static Profiler? _lastClickedNode;
 
+    private const float GapY = 15.0f;
+    private const float ButtonHeight = 20.0f;
+    private const float PaddingX = 1.0f;
+    private const float PaddingY = 3.0f;
+    private static Profiler? _selectedNode;
+    
     public static void Window()
     {
         ImGui.Begin("Profiler");
+        
         lock (Lock)
         {
             var startTime = TimeSpan.MaxValue;
             var endTime = TimeSpan.MinValue;
-            foreach (var task in RootTask._subTasks)
+            
+            var toggledTasks = new List<Profiler>();
+            ImGui.BeginChild("##Selectors", new Vector2(0f, 100f), true);
+            foreach (var (task, selected) in RootTasks)
             {
-                if (task._startTime < startTime) startTime = task._startTime;
-                if (task.LastTime > endTime) endTime = task.LastTime;
+                if (selected)
+                {
+                    if (task._startTime < startTime) startTime = task._startTime;
+                    if (task.LastTime > endTime) endTime = task.LastTime;
+                }
+                
+                
+                if (ImGui.Selectable(task._name, selected))
+                {
+                    toggledTasks.Add(task);
+                    _selectedNode = task;
+                }
             }
+            ImGui.EndChild();
 
-            var lastY = 0.0f;
-            foreach (var task in RootTask._subTasks)
+            ImGui.Text(_selectedNode == null
+                ? "No node selected"
+                : $"{_selectedNode.Description} - Thread: {_selectedNode._thread}");
+
+            ImGui.BeginChild("##FlameGraph", Vector2.Zero, true);
+            ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, new Vector2(0.0f, 0.5f));
+            
+            var lastY = 0f;
+            var id = 0;
+            foreach (var (task, value) in RootTasks)
             {
+                if (!value) continue;
+
+                ImGui.PushID(id++);
                 lastY = task.FlameGraph(startTime, endTime, lastY);
-                lastY += 15.0f;
+                lastY += GapY;
+                ImGui.PopID();
+            }
+            
+            ImGui.PopStyleVar();
+            ImGui.EndChild();
+
+            foreach (var task in toggledTasks)
+            {
+                RootTasks[task] ^= true;
             }
         }
-
-        if (ImGui.BeginPopup("nodeInfoPopup"))
-        {
-            ImGui.Text(_lastClickedNode!.Description);
-            ImGui.EndPopup();
-        }
-
+        
         ImGui.End();
     }
-
-    private float FlameGraph(TimeSpan startTime, TimeSpan endTime, float startY, int depth = 0)
+    
+    private float FlameGraph(TimeSpan startTime, TimeSpan endTime, float startY)
     {
         var deltaTime = endTime - startTime;
         var startPercentage = (_startTime - startTime) / deltaTime;
-        var endPercentage = (_endTime ?? endTime - startTime) / deltaTime;
+        var endPercentage = ((_endTime ?? endTime) - startTime) / deltaTime;
 
         var totalWidth = ImGui.GetContentRegionAvail().X;
-        var startX = startPercentage * totalWidth;
-        var endX = endPercentage * totalWidth;
-
-        ImGui.SetCursorPosX(ImGui.GetCursorStartPos().X + (float)startX);
-        ImGui.SetCursorPosY(ImGui.GetCursorStartPos().Y + startY);
+        var startX = (int)(startPercentage * totalWidth);
+        var endX = (int)(endPercentage * totalWidth);
         
+        ImGui.SetCursorPosX(startX + PaddingX);
+        ImGui.SetCursorPosY(startY);
+
         var threadsCount = UniqueThreads.Count;
         var threadIndex = -1;
         for (var i = 0; i < threadsCount; i++)
@@ -108,51 +144,51 @@ public class Profiler
             threadIndex = i;
             break;
         }
+
         var hue = (float)threadIndex / threadsCount;
         ImGui.PushStyleColor(ImGuiCol.Button, ImGuiExtension.Hsv(hue, 0.6f, 0.6f));
         ImGui.PushStyleColor(ImGuiCol.ButtonHovered, ImGuiExtension.Hsv(hue, 0.7f, 0.7f));
         ImGui.PushStyleColor(ImGuiCol.ButtonActive, ImGuiExtension.Hsv(hue, 0.8f, 0.8f));
-        
-        // ReSharper disable once InvertIf
-        if (ImGui.Button(Description, new Vector2((float)(endX - startX), ButtonHeight)))
+
+        if (ImGui.Button(Description, new Vector2(endX - startX - PaddingX * 2, ButtonHeight)))
         {
-            _lastClickedNode = this;
-            ImGui.OpenPopup("nodeInfoPopup");
+            _selectedNode = this;
         }
+        
         ImGui.PopStyleColor(3);
 
-        var lastY = startY + TotalRowHeight;
-        // ReSharper disable once LoopCanBeConvertedToQuery
-        foreach (var node in _subTasks)
+        var id = 0;
+        var lastY = startY + ButtonHeight + PaddingY;
+        foreach (var tasksPerThread in _subTasks)
         {
-            lastY = node.FlameGraph(startTime, endTime, lastY, depth + 1);
+            var lastGroupY = lastY;
+            foreach (var task in tasksPerThread.Value)
+            {
+                ImGui.PushID(id++);
+                lastGroupY = task.FlameGraph(startTime, endTime, lastY);
+                ImGui.PopID();
+            }
+            lastY = lastGroupY;
         }
+
         return lastY;
     }
 
     private TimeSpan LastTime =>
-        _endTime ?? (_subTasks.IsEmpty ? Stopwatch.Elapsed : _subTasks.Max(node => node.LastTime));
+        _endTime ?? (_subTasks.IsEmpty
+            ? Stopwatch.Elapsed
+            : _subTasks.Max(tasks => tasks.Value.Max(task => task.LastTime)));
 
-    private string Description => $"{_name} - {DurationString}";
+    private string Description => $"{_name} - {TimeString}";
 
-    private string DurationString =>
+    private string TimeString =>
         Stopped
             ? $"{TotalTime.FormatDuration()}"
-            : $"Running... ({GetRunningTask})";
+            : "Running...";
 
     private bool Stopped => _endTime != null;
 
     private TimeSpan TotalTime => (TimeSpan)(_endTime! - _startTime);
-
-    private string GetRunningTask
-    {
-        get
-        {
-            if (_subTasks.IsEmpty) return _name;
-            var lastProcess = _subTasks.Last();
-            return lastProcess.Stopped ? _name : lastProcess.GetRunningTask;
-        }
-    }
 
     public override string ToString() => _name;
 }
