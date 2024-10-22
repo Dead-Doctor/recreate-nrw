@@ -59,4 +59,12 @@ public static class Calc
     [PublicAPI]
     public static Vector3 Modulo(this Vector3 value, float step) =>
         new(value.X.Modulo(step), value.Y.Modulo(step), value.Z.Modulo(step));
+    
+    [PublicAPI]
+    public static string FormatDuration(this TimeSpan duration) =>
+        duration.TotalSeconds < 1.0 ? $"{duration.TotalMilliseconds:N0}ms"
+        : duration.TotalMinutes < 1.0 ? $"{duration.TotalSeconds:N1}s"
+        : duration.TotalHours < 1.0 ? $"{duration.TotalMinutes:N1}min"
+        : duration.TotalDays < 1.0 ? $"{duration.TotalHours:N1}min"
+        : $"{duration.TotalDays:N1}min";
 }

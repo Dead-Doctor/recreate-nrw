@@ -1,4 +1,4 @@
-﻿using System.Collections;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Numerics;
 using ImGuiNET;
@@ -6,203 +6,153 @@ using JetBrains.Annotations;
 
 namespace recreate_nrw.Util;
 
-//TODO: improve ui
-
-public static class Profiler
+public class Profiler
 {
     private static readonly object Lock = new();
-    private static readonly Stopwatch Stopwatch = new();
-    private static readonly Hashtable ProcessNodes;
-
-    static Profiler()
-    {
-        Stopwatch.Start();
-        ProcessNodes = Hashtable.Synchronized(new Hashtable());
-    }
-
-    private static TimeSpan GetElapsed()
-    {
-        lock (Lock) return Stopwatch.Elapsed;
-    }
+    private static readonly Stopwatch Stopwatch = Stopwatch.StartNew();
+    private static readonly ConcurrentBag<int> UniqueThreads = new();
+    private static readonly Profiler RootTask = new("root");
 
     [PublicAPI]
-    public static void Start(string name)
+    public static Profiler Create(string name)
+    {
+        return RootTask.Start(name);
+    }
+
+    private readonly string _name;
+    private readonly int _thread;
+    private readonly TimeSpan _startTime;
+    private TimeSpan? _endTime;
+
+    private readonly ConcurrentBag<Profiler> _subTasks = new();
+
+    private Profiler(string name)
+    {
+        _name = name;
+        _thread = Environment.CurrentManagedThreadId;
+        if (!UniqueThreads.Contains(_thread)) UniqueThreads.Add(_thread);
+        _startTime = Stopwatch.Elapsed;
+    }
+
+    public Profiler Start(string name)
     {
         lock (Lock)
         {
-            var thread = Environment.CurrentManagedThreadId;
-            if (!ProcessNodes.Contains(thread))
-                ProcessNodes.Add(thread, new ProcessNode($"{Thread.CurrentThread.Name} ({thread})", GetElapsed()));
-
-            var node = (ProcessNode)ProcessNodes[thread]!;
-            node.Start(name, GetElapsed());
+            var task = new Profiler(name);
+            _subTasks.Add(task);
+            return task;
         }
     }
 
-    [PublicAPI]
-    public static void Stop()
+    public void Stop()
     {
         lock (Lock)
         {
-            var thread = Environment.CurrentManagedThreadId;
-            if (!ProcessNodes.Contains(thread))
-                throw new InvalidOperationException(
-                    $"Tried to stop profiler but no processes are running on Thread ({thread}).");
-
-            var node = (ProcessNode)ProcessNodes[thread]!;
-            node.Stop(GetElapsed());
+            _endTime = Stopwatch.Elapsed;
         }
     }
+    
+    private const float ButtonHeight = 20.0f;
+    private const float PaddingY = 3.0f;
+    private const float TotalRowHeight = ButtonHeight + PaddingY;
+    private static Profiler? _lastClickedNode;
 
     public static void Window()
     {
         ImGui.Begin("Profiler");
-        var y = 0.0f;
         lock (Lock)
         {
             var startTime = TimeSpan.MaxValue;
             var endTime = TimeSpan.MinValue;
-            foreach (ProcessNode node in ProcessNodes.Values)
+            foreach (var task in RootTask._subTasks)
             {
-                if (node.StartTime < startTime) startTime = node.StartTime;
-                if (node.LastTime > endTime) endTime = node.LastTime;
+                if (task._startTime < startTime) startTime = task._startTime;
+                if (task.LastTime > endTime) endTime = task.LastTime;
             }
-            foreach (ProcessNode node in ProcessNodes.Values)
+
+            var lastY = 0.0f;
+            foreach (var task in RootTask._subTasks)
             {
-                y += node.FlameGraph(startTime, endTime, y);
-                y += 15.0f;
+                lastY = task.FlameGraph(startTime, endTime, lastY);
+                lastY += 15.0f;
             }
         }
+
         if (ImGui.BeginPopup("nodeInfoPopup"))
         {
-            ImGui.Text(ProcessNode.LastClickedNode!.Description);
+            ImGui.Text(_lastClickedNode!.Description);
             ImGui.EndPopup();
         }
 
         ImGui.End();
     }
 
-    private class ProcessNode
+    private float FlameGraph(TimeSpan startTime, TimeSpan endTime, float startY, int depth = 0)
     {
-        private const float Height = 20.0f;
+        var deltaTime = endTime - startTime;
+        var startPercentage = (_startTime - startTime) / deltaTime;
+        var endPercentage = (_endTime ?? endTime - startTime) / deltaTime;
 
-        public static ProcessNode? LastClickedNode;
+        var totalWidth = ImGui.GetContentRegionAvail().X;
+        var startX = startPercentage * totalWidth;
+        var endX = endPercentage * totalWidth;
+
+        ImGui.SetCursorPosX(ImGui.GetCursorStartPos().X + (float)startX);
+        ImGui.SetCursorPosY(ImGui.GetCursorStartPos().Y + startY);
         
-        private readonly string _name;
-        public readonly TimeSpan StartTime;
-        private TimeSpan? _endTime;
-
-        private readonly List<ProcessNode> _subProcessNodes = new();
-
-        public ProcessNode(string name, TimeSpan elapsed)
+        var threadsCount = UniqueThreads.Count;
+        var threadIndex = -1;
+        for (var i = 0; i < threadsCount; i++)
         {
-            _name = name;
-            StartTime = elapsed;
+            if (UniqueThreads.ElementAt(i) != _thread) continue;
+            threadIndex = i;
+            break;
         }
-
-        public void Start(string name, TimeSpan elapsed)
-        {
-
-            lock (_subProcessNodes)
-            {
-                if (_subProcessNodes.Count > 0)
-                {
-                    var lastProcess = _subProcessNodes.Last();
-                    if (!lastProcess.Stopped)
-                    {
-                        lastProcess.Start(name, elapsed);
-                        return;
-                    }
-
-                    if (lastProcess._endTime > elapsed)
-                        throw new Exception("Next process started earlier then last one stopped (on the same thread).");
-                }
-
-                _subProcessNodes.Add(new ProcessNode(name, elapsed));
-            }
-        }
-
-        public void Stop(TimeSpan elapsed)
-        {
-            lock (_subProcessNodes)
-            {
-                if (_subProcessNodes.Count != 0)
-                {
-                    var lastProcess = _subProcessNodes.Last();
-                    if (!lastProcess.Stopped)
-                    {
-                        lastProcess.Stop(elapsed);
-                        return;
-                    }
-                }
-
-                _endTime = elapsed;
-            }
-        }
-
-        public TimeSpan LastTime =>
-            _endTime ?? (_subProcessNodes.Count <= 0 ? GetElapsed() : _subProcessNodes.Max(node => node.LastTime));
-
-        private string GetRunningTask()
-        {
-            if (_subProcessNodes.Count <= 0) return _name;
-            var lastProcess = _subProcessNodes.Last();
-            return lastProcess.Stopped ? _name : lastProcess.GetRunningTask();
-        }
-
-        private TimeSpan TotalTime() => (TimeSpan)(_endTime! - StartTime);
-        private TimeSpan TotalTimeInSubprocess() => new(_subProcessNodes.Sum(node => node.TotalTime().Ticks));
+        var hue = (float)threadIndex / threadsCount;
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGuiExtension.Hsv(hue, 0.6f, 0.6f));
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, ImGuiExtension.Hsv(hue, 0.7f, 0.7f));
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, ImGuiExtension.Hsv(hue, 0.8f, 0.8f));
         
-        public float FlameGraph(TimeSpan startTime, TimeSpan endTime, float startY)
+        // ReSharper disable once InvertIf
+        if (ImGui.Button(Description, new Vector2((float)(endX - startX), ButtonHeight)))
         {
-            var y = ImGui.GetCursorStartPos().Y + startY;
-            lock (_subProcessNodes)
-            {
-                return _subProcessNodes.Select(node => node.FlameGraph(startTime, endTime, y, 0)).Prepend(0.0f).Max();
-            }
+            _lastClickedNode = this;
+            ImGui.OpenPopup("nodeInfoPopup");
         }
+        ImGui.PopStyleColor(3);
 
-        private float FlameGraph(TimeSpan startTime, TimeSpan endTime, float startY, int depth)
+        var lastY = startY + TotalRowHeight;
+        // ReSharper disable once LoopCanBeConvertedToQuery
+        foreach (var node in _subTasks)
         {
-            var deltaTime = endTime - startTime;
-            var startPercentage = (StartTime - startTime) / deltaTime;
-            var endPercentage = (_endTime ?? endTime - startTime) / deltaTime;
-
-            var totalWidth = ImGui.GetContentRegionAvail().X;
-            var startX = startPercentage * totalWidth;
-            var endX = endPercentage * totalWidth;
-
-            ImGui.SetCursorPosX(ImGui.GetCursorStartPos().X + (float)startX);
-            var y = (Height + 3.0f) * depth;
-            ImGui.SetCursorPosY(startY + y);
-
-            if (ImGui.Button(Description, new Vector2((float)(endX - startX), Height)))
-            {
-                LastClickedNode = this;
-                ImGui.OpenPopup("nodeInfoPopup");
-            }
-            
-            return _subProcessNodes.Select(node => node.FlameGraph(startTime, endTime, startY, depth + 1)).Prepend(y + Height).Max();
+            lastY = node.FlameGraph(startTime, endTime, lastY, depth + 1);
         }
-
-        private string DurationString =>
-            Stopped
-                ? $"{FormatDuration(TotalTime())} ({FormatDuration(TotalTime() - TotalTimeInSubprocess())})"
-                : $"Running... ({GetRunningTask()})";
-
-        public string Description => $"{_name} - {DurationString}";
-        
-        private bool Stopped => _endTime != null;
-
-        public override string ToString() => _name;
+        return lastY;
     }
-    
 
-    [PublicAPI]
-    public static string FormatDuration(TimeSpan duration) =>
-        duration.TotalSeconds < 1.0 ? $"{duration.TotalMilliseconds:N0}ms"
-        : duration.TotalMinutes < 1.0 ? $"{duration.TotalSeconds:N1}s"
-        : duration.TotalHours < 1.0 ? $"{duration.TotalMinutes:N1}min"
-        : duration.TotalDays < 1.0 ? $"{duration.TotalHours:N1}min"
-        : $"{duration.TotalDays:N1}min";
+    private TimeSpan LastTime =>
+        _endTime ?? (_subTasks.IsEmpty ? Stopwatch.Elapsed : _subTasks.Max(node => node.LastTime));
+
+    private string Description => $"{_name} - {DurationString}";
+
+    private string DurationString =>
+        Stopped
+            ? $"{TotalTime.FormatDuration()}"
+            : $"Running... ({GetRunningTask})";
+
+    private bool Stopped => _endTime != null;
+
+    private TimeSpan TotalTime => (TimeSpan)(_endTime! - _startTime);
+
+    private string GetRunningTask
+    {
+        get
+        {
+            if (_subTasks.IsEmpty) return _name;
+            var lastProcess = _subTasks.Last();
+            return lastProcess.Stopped ? _name : lastProcess.GetRunningTask;
+        }
+    }
+
+    public override string ToString() => _name;
 }

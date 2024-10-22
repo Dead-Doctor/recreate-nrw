@@ -75,12 +75,12 @@ public class AsyncResourceLoader<TId, TValue> where TId : notnull
     
     public Task<TValue> LoadResourceAsync(TId id, Func<TValue> loader)
     {
-        return _loadingTasks.GetOrAdd(id, _ => Task.Factory.StartNew(() =>
+        return _loadingTasks.GetOrAdd(id, _ => Task.Run(() =>
         {
             var value = loader();
             _loadingTasks.TryRemove(id, out var _);
             return value;
-        }, TaskCreationOptions.LongRunning));
+        }));
     }
 }
     

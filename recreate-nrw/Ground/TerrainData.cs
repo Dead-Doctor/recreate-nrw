@@ -67,13 +67,16 @@ public static class TerrainData
             AvailableData.Add(position);
             Console.WriteLine($"[TerrainData]: Found data tile X: {position.X}, Y: {position.Y}");
         }
+
         var data = new float[AvailableData.Count * 2];
         for (var i = 0; i < AvailableData.Count; i++)
         {
             data[i * 2 + 0] = AvailableData[i].X;
             data[i * 2 + 1] = AvailableData[i].Y;
         }
-        AvailableDataTilesTexture = new StaticTexture(new TextureInfo1D(new TextureData(data, PixelFormat.Rg, PixelType.Float), SizedInternalFormat.Rg32f, AvailableData.Count));
+
+        AvailableDataTilesTexture = new StaticTexture(new TextureInfo1D(
+            new TextureData(data, PixelFormat.Rg, PixelType.Float), SizedInternalFormat.Rg32f, AvailableData.Count));
     }
 
     //TODO: might crash when called twice for same tile in quick succession for the first time
@@ -93,7 +96,7 @@ public static class TerrainData
 
     private static float[] CreateTile(Vector2i pos)
     {
-        Profiler.Start($"CreateTile: ({pos.X}, {pos.Y})");
+        var task = Profiler.Create($"CreateTile: ({pos.X}, {pos.Y})");
 
         // y is inverted for data tiles. Exclusive: yStart, xEnd
         var (xStart, yStart) = Coordinate.TerrainTileIndex(pos).TerrainData();
@@ -110,7 +113,7 @@ public static class TerrainData
         {
             for (var x = 0; x < dataTileColumns; x++)
             {
-                dataTiles[y * dataTileColumns + x] = GetData(topLeft + new Vector2i(x, y));
+                dataTiles[y * dataTileColumns + x] = GetData(topLeft + new Vector2i(x, y), task);
             }
         }
 
@@ -137,7 +140,7 @@ public static class TerrainData
             }
         }
 
-        Profiler.Stop( /*CreateTile*/);
+        task.Stop( /*CreateTile*/);
         SaveTile(pos, tile);
         return tile;
     }
@@ -159,7 +162,8 @@ public static class TerrainData
     }
 
     //TODO: delete after all tiles have been created using this datatile
-    private static async Task<float[]> GetData(Vector2i tile) => await DataLoaderCached.Get(tile, LoadData);
+    private static async Task<float[]> GetData(Vector2i tile, Profiler task) =>
+        await DataLoaderCached.Get(tile, i => LoadData(i, task));
 
     /// <summary>
     /// Time (avg for 9x, changes additional to previous):
@@ -168,7 +172,7 @@ public static class TerrainData
     /// 100 Lines at a time: 196ms
     /// Parse Int manually: 139ms
     /// </summary>
-    private static float[] LoadData(Vector2i tile)
+    private static float[] LoadData(Vector2i tile, Profiler task)
     {
         var data = new float[DataArea];
         if (!AvailableData.Contains(tile))
@@ -177,14 +181,14 @@ public static class TerrainData
             Console.WriteLine($"[WARNING]: Data tile was not found. {tile}");
             return data;
         }
-        
+
         var path = $"Data/Raw/dgm1_32_{tile.X}_{tile.Y}_1_nw.xyz.gz";
-        
+
         using var stream = File.OpenRead(path);
         using var decompressed = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(decompressed);
 
-        Profiler.Start($"LoadData: ({tile.X}, {tile.Y})");
+        var subTask = task.Start($"LoadData: ({tile.X}, {tile.Y})");
 
         const int linesPerBlock = 1000 / 4;
         const int lineLength = 27 + 2; // \r\n => +2 chars
@@ -214,7 +218,7 @@ public static class TerrainData
             }
         }
 
-        Profiler.Stop( /*LoadData*/);
+        subTask.Stop( /*LoadData*/);
         return data;
     }
 

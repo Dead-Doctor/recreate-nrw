@@ -36,4 +36,10 @@ public static class ImGuiExtension
         value = new Color4(color.X, color.Y, color.Z, color.W);
         return result;
     }
+
+    public static System.Numerics.Vector4 Hsv(float hue, float saturation, float value)
+    {
+        ImGui.ColorConvertHSVtoRGB(hue, saturation, value, out var r, out var g, out var b);
+        return new System.Numerics.Vector4(r, g, b, 1);
+    }
 }
