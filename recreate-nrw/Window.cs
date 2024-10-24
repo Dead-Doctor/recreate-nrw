@@ -93,7 +93,7 @@ public class Window : GameWindow
 
         _sky = new Sky();
 
-        _map = new Map();
+        _map = new Map(_camera);
 
         // _scene = new TestScene(_camera);
     }
@@ -107,7 +107,6 @@ public class Window : GameWindow
         base.OnUpdateFrame(e);
         _controls.Update(e.Time, _camera);
         _terrain.Update(_camera);
-        _map.Update(_camera, (float)e.Time);
 
         _frameCount++;
         _timeSinceLastFpsUpdate += e.Time;
@@ -174,11 +173,26 @@ public class Window : GameWindow
 
     private void InfoWindow()
     {
-        ImGui.Begin("Info");
+        var windowFlags = _map.Hovered ? ImGuiWindowFlags.NoScrollWithMouse : ImGuiWindowFlags.None;
+        ImGui.Begin("Info", windowFlags);
 
+        var mapHeight = Math.Clamp(ImGui.GetWindowHeight() * 0.4f, 80f, 200f);
+        _map.Window(new Vector2(0f, mapHeight));
+        
+        ImGui.AlignTextToFramePadding();
         ImGui.Value("Fps", (float)_fps);
+        
+        ImGui.SameLine();
         if (ImGui.Checkbox("VSync", ref _vsync))
             VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
+        
+        var locateButtonSize = ImGui.GetFrameHeight();
+        ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetStyle().WindowPadding.X - locateButtonSize);
+        var disabled = _map.FollowPlayer;
+        if (disabled) ImGui.BeginDisabled();
+        if (ImGui.Button("+", new System.Numerics.Vector2(locateButtonSize)))
+            _map.FollowPlayer = true;
+        if (disabled) ImGui.EndDisabled();
 
         if (ImGuiExtension.Vector3("Position", _camera.Position, out var newPosition))
             _camera.Position = newPosition;
