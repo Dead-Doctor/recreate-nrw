@@ -74,7 +74,7 @@ public class Profiler
             var endTime = TimeSpan.MinValue;
             
             var toggledTasks = new List<Profiler>();
-            ImGui.BeginChild("##Selectors", new Vector2(0f, 100f), true);
+            ImGui.BeginChild("##Selectors", new Vector2(0f, 50f), ImGuiChildFlags.Border | ImGuiChildFlags.ResizeY);
             foreach (var (task, selected) in RootTasks)
             {
                 if (selected)
@@ -82,7 +82,6 @@ public class Profiler
                     if (task._startTime < startTime) startTime = task._startTime;
                     if (task.LastTime > endTime) endTime = task.LastTime;
                 }
-                
                 
                 if (ImGui.Selectable(task._name, selected))
                 {
@@ -96,7 +95,7 @@ public class Profiler
                 ? "No node selected"
                 : $"{_selectedNode.Description} - Thread: {_selectedNode._thread}");
 
-            ImGui.BeginChild("##FlameGraph", Vector2.Zero, true);
+            ImGui.BeginChild("##FlameGraph", Vector2.Zero, ImGuiChildFlags.Border);
             ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, new Vector2(0.0f, 0.5f));
             
             var lastY = 0f;

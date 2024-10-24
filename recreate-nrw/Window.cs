@@ -68,7 +68,7 @@ public class Window : GameWindow
         Renderer.DepthTesting = true;
         Renderer.BackFaceCulling = true;
         Renderer.BlendingFunction(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-        _controller = new ImGuiController(ClientSize.X, ClientSize.Y);
+        _controller = new ImGuiController(ClientSize);
         Resources.RegisterDisposable(_controller);
 
         _camera = new Camera(Size, new Vector3(0.0f, 100.0f, 0.0f));
@@ -96,6 +96,25 @@ public class Window : GameWindow
         _map = new Map();
 
         // _scene = new TestScene(_camera);
+    }
+
+    private int _frameCount;
+    private double _timeSinceLastFpsUpdate;
+    private double _fps;
+
+    protected override void OnUpdateFrame(FrameEventArgs e)
+    {
+        base.OnUpdateFrame(e);
+        _controls.Update(e.Time, _camera);
+        _terrain.Update(_camera);
+        _map.Update(_camera, (float)e.Time);
+
+        _frameCount++;
+        _timeSinceLastFpsUpdate += e.Time;
+        if (_timeSinceLastFpsUpdate < 1.0) return;
+        _fps = _frameCount / _timeSinceLastFpsUpdate;
+        _frameCount = 0;
+        _timeSinceLastFpsUpdate = 0.0;
     }
 
     //TODO: crashes when streamed on discord
@@ -139,41 +158,18 @@ public class Window : GameWindow
         _grass.Draw(_camera);
         // _fern.Draw();
 
-
-        ImGui.DockSpaceOverViewport(ImGui.GetMainViewport(),
-            ImGuiDockNodeFlags.PassthruCentralNode | ImGuiDockNodeFlags.NoDockingInCentralNode);
-
-        ImGui.ShowDemoWindow();
-        _terrain.Window();
-        _grass.Window();
-        _sky.Window();
-        _map.Window((float)(1 / _fps));
-        Profiler.Window();
-        InfoWindow();
-        _controller.Render();
+        _controller.RenderFrame(this, (float)e.Time, () =>
+        {
+            ImGui.ShowDemoWindow();
+            _terrain.Window();
+            _grass.Window();
+            _sky.Window();
+            Profiler.Window();
+            InfoWindow();
+        });
 
         //GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
         SwapBuffers();
-    }
-
-    private int _frameCount;
-    private double _timeSinceLastFpsUpdate;
-    private double _fps;
-
-    protected override void OnUpdateFrame(FrameEventArgs e)
-    {
-        base.OnUpdateFrame(e);
-        _controls.Update(e.Time, _camera);
-        _controller.Update(this, (float)e.Time);
-        _terrain.Update(_camera);
-        _map.Update(_camera);
-
-        _frameCount++;
-        _timeSinceLastFpsUpdate += e.Time;
-        if (_timeSinceLastFpsUpdate < 1.0) return;
-        _fps = _frameCount / _timeSinceLastFpsUpdate;
-        _frameCount = 0;
-        _timeSinceLastFpsUpdate = 0.0;
     }
 
     private void InfoWindow()
@@ -224,8 +220,8 @@ public class Window : GameWindow
     {
         base.OnResize(e);
         Renderer.Viewport = new Box2i(0, 0, e.Width, e.Height);
-
-        _controller.WindowResized(e.Width, e.Height);
+    
+        _controller.OnResize(e);
         _camera.Resize(e.Size);
     }
 
@@ -233,18 +229,49 @@ public class Window : GameWindow
     {
         base.OnFocusedChanged(e);
         if (!e.IsFocused) _controls.Pause(true);
+        ImGuiController.OnFocusedChanged(e);
+    }
+
+    protected override void OnKeyDown(KeyboardKeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        ImGuiController.OnKeyDown(e);
     }
 
     protected override void OnTextInput(TextInputEventArgs e)
     {
         base.OnTextInput(e);
-        _controller.TextInput((char)e.Unicode);
+        ImGuiController.OnTextInput(e);
+    }
+
+    protected override void OnKeyUp(KeyboardKeyEventArgs e)
+    {
+        base.OnKeyUp(e);
+        ImGuiController.OnKeyUp(e);
+    }
+
+    protected override void OnMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseDown(e);
+        ImGuiController.OnMouseDown(e);
+    }
+
+    protected override void OnMouseUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseUp(e);
+        ImGuiController.OnMouseUp(e);
+    }
+
+    protected override void OnMouseMove(MouseMoveEventArgs e)
+    {
+        base.OnMouseMove(e);
+        ImGuiController.OnMouseMove(e);
     }
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
-        ImGuiController.MouseScroll(e.Offset);
+        ImGuiController.OnMouseWheel(e);
     }
 
     protected override void OnUnload()

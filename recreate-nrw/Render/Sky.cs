@@ -44,7 +44,7 @@ public class Sky
     private readonly Shader _shader;
     private readonly ShadedModel _shadedModel;
 
-    private bool _systemTime = false;
+    private bool _systemTime;
     private float _timeOverride = 16f;
     public Vector3 SunDirection;
 
@@ -88,9 +88,11 @@ public class Sky
 
         ImGui.Checkbox("System", ref _systemTime);
         ImGui.SameLine();
-        if (_systemTime) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.5f);
+        ImGui.PushItemWidth(100f);
+        if (_systemTime) ImGui.BeginDisabled();
         ImGui.DragFloat("UTC Time", ref _timeOverride, _systemTime ? 0f : 0.1f, 0f, 24f);
-        if (_systemTime) ImGui.PopStyleVar();
+        if (_systemTime) ImGui.EndDisabled();
+        ImGui.PopItemWidth();
         
         if (ImGuiExtension.ColorEdit4("Sky Horizon", ref _skyHorizon))
             _shader.SetUniform("skyHorizon", _skyHorizon);
