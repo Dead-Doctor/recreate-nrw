@@ -93,7 +93,7 @@ public class Window : GameWindow
 
         _sky = new Sky();
 
-        _map = new Map(_camera);
+        _map = new Map(_camera, _terrain);
 
         // _scene = new TestScene(_camera);
     }

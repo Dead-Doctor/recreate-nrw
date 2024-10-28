@@ -9,7 +9,7 @@ namespace recreate_nrw.Ground;
 
 public class Terrain
 {
-    private const int TileSize = Coordinate.TerrainTileSize;
+    private const int BaseTileSize = Coordinate.TerrainTileSize;
     
     private int _n = 32;
     private int _renderDistance;
@@ -18,6 +18,10 @@ public class Terrain
     private int _biggestSquares;
     private int _chunks;
 
+    public const int TextureLODs = 2;
+    private const int TexturesPerLOD = 4;
+    private const float SwitchRegionSize = 0.375f;
+    
     private readonly Shader _shader;
     private Model? _model;
     private ShadedModel? _shadedModel;
@@ -48,19 +52,16 @@ public class Terrain
             _chunks = 4 * (1 + 3 * _LODs);
         }
     }
-    
-    private int _left;
-    private int _right;
-    private int _top;
-    private int _bottom;
-    private readonly LoadedTile[] _loadedTiles = new LoadedTile[4];
+
+    public readonly Vector2i[] Center = new Vector2i[TextureLODs];
+    private readonly LoadedTile[][] _loadedTiles = new LoadedTile[TextureLODs][];
 
     private readonly List<Shader> _dependentShaders = new();
 
     public Terrain()
     {
         RenderDistance = 512;
-
+        
         _shader = new Shader("terrain");
         _shader.AddUniform<Vector2>("modelPos");
         _shader.AddUniform<Matrix4>("viewMat");
@@ -68,9 +69,16 @@ public class Terrain
         _shader.AddUniform("n", N);
         _shader.AddUniform<Vector3>("sunDir");
         _shader.AddUniform<int>("debug");
-        
-        for (var i = 0; i < _loadedTiles.Length; i++) _loadedTiles[i] = new LoadedTile();
-        SwitchTiles(0.0f, 0.0f);
+
+        for (var lod = 0; lod < TextureLODs; lod++)
+        {
+            _loadedTiles[lod] = new LoadedTile[TexturesPerLOD];
+            for (var i = 0; i < TexturesPerLOD; i++)
+            {
+                _loadedTiles[lod][i] = new LoadedTile(lod);
+            }
+            SwitchTiles(lod, Vector2.Zero);
+        }
         AddDependentShader(_shader);
         
         GenerateModel();
@@ -80,13 +88,17 @@ public class Terrain
     {
         Console.WriteLine($"Marked shader '{shader}' as dependent.");
         _dependentShaders.Add(shader);
-        for (var i = 0; i < _loadedTiles.Length; i++)
+        shader.AddUniform("textureBaseSize", BaseTileSize);
+        for (var i = 0; i < TextureLODs; i++)
         {
-            var loadedTile = _loadedTiles[i];
-            var tilePos = loadedTile.Pos!.Value;
-            var texture = loadedTile.Texture;
-            shader.AddUniform($"tiles[{i}].pos", tilePos.ToVector2());
-            shader.AddTexture($"tiles[{i}].data", texture);
+            for (var j = 0; j < TexturesPerLOD; j++)
+            {
+                var loadedTile = _loadedTiles[i][j];
+                var tilePos = loadedTile.Pos!.Value;
+                var texture = loadedTile.Texture;
+                shader.AddUniform($"tiles[{i}][{j}].pos", tilePos.ToVector2());
+                shader.AddTexture($"tiles[{i}][{j}].data", texture);
+            }
         }
     }
 
@@ -152,51 +164,65 @@ public class Terrain
 
     public void Update(Camera camera)
     {
-        var xTileSpace = camera.Position.X / TileSize;
-        var zTileSpace = camera.Position.Z / TileSize;
-
-        if (xTileSpace < _left + 0.375f) SwitchTiles(xTileSpace, zTileSpace);
-        else if (xTileSpace > _right - 0.375f) SwitchTiles(xTileSpace, zTileSpace);
-
-        if (zTileSpace < _top + 0.375f) SwitchTiles(xTileSpace, zTileSpace);
-        else if (zTileSpace > _bottom - 0.375f) SwitchTiles(xTileSpace, zTileSpace);
-
-        for (var i = 0; i < _loadedTiles.Length; i++)
+        for (var lod = 0; lod < TextureLODs; lod++)
         {
-            _loadedTiles[i].CheckLoaded(this, i);
+            var stepSize = 1 << lod;
+            var tileSize = BaseTileSize * stepSize;
+            var tileSpace = camera.Position.Xz / tileSize;
+            
+            var bounds = Center[lod].ToVector2().GrowToBox(1 - SwitchRegionSize);
+            if (!bounds.ContainsInclusive(tileSpace)) SwitchTiles(lod, tileSpace);
+        }
+
+        for (var lod = 0; lod < TextureLODs; lod++)
+        {
+            for (var i = 0; i < TexturesPerLOD; i++)
+            {
+                var loadedTile = _loadedTiles[lod][i];
+                if (!loadedTile.TryUpload()) continue;
+                foreach (var shader in _dependentShaders)
+                {
+                    var tilePos = loadedTile.Pos!.Value;
+                    shader.SetUniform($"tiles[{lod}][{i}].pos", tilePos.ToVector2());
+                }
+            }
         }
     }
 
-    private void SwitchTiles(float x, float z)
+    private void SwitchTiles(int lod, Vector2 tileSpace)
     {
-        var tileXLower = (int) Math.Floor(x - 0.5f);
-        var tileZLower = (int) Math.Floor(z - 0.5f);
-        var tileXUpper = tileXLower + 1;
-        var tileZUpper = tileZLower + 1;
+        var tileCenter = (tileSpace + new Vector2(0.5f)).FloorToInt();
 
-        _left = tileXLower;
-        _right = tileXUpper + 1;
-        _top = tileZLower;
-        _bottom = tileZUpper + 1;
+        Center[lod] = tileCenter;
 
-        Load(new Vector2i(tileXLower, tileZLower));
-        Load(new Vector2i(tileXUpper, tileZLower));
-        Load(new Vector2i(tileXUpper, tileZUpper));
-        Load(new Vector2i(tileXLower, tileZUpper));
+        Load(lod, new Vector2i(tileCenter.X - 1, tileCenter.Y - 1));
+        Load(lod, new Vector2i(tileCenter.X - 1, tileCenter.Y));
+        Load(lod, new Vector2i(tileCenter.X, tileCenter.Y - 1));
+        Load(lod, new Vector2i(tileCenter.X, tileCenter.Y));
     }
 
-    private void Load(Vector2i tilePos)
+    private void Load(int lod, Vector2i tileSpacePos)
     {
-        var i = tilePos.Y.Modulo(2) * 2 + tilePos.X.Modulo(2);
-        var tile = _loadedTiles[i];
+        var i = tileSpacePos.Y.Modulo(2) * 2 + tileSpacePos.X.Modulo(2);
+        var tile = _loadedTiles[lod][i];
+        var stepSize = 1 << lod;
+        var tilePos = tileSpacePos * stepSize;
         if (tile.Pos == tilePos) return;
-
         tile.MoveTile(tilePos);
     }
 
     public void Window()
     {
         ImGui.Begin("Terrain");
+        
+        const int bytesPerTexture = BaseTileSize * BaseTileSize * sizeof(float);
+        ImGui.Text($"Texture Size: {bytesPerTexture.FormatSize()}");
+        ImGui.Text($"Texture LODs: {TextureLODs}");
+        ImGui.Text($"Total texture size: {(TextureLODs * TexturesPerLOD * bytesPerTexture).FormatSize()}");
+        const int biggestLodSize = BaseTileSize << (TextureLODs - 1);
+        ImGui.Text($"Texture coverage distance (worse/best): ({(biggestLodSize * SwitchRegionSize).FormatDistance()}/{biggestLodSize.FormatDistance()})");
+        
+        ImGui.Separator();
 
         ImGui.PushItemWidth(100.0f);
         var cachedRenderDistance = RenderDistance;
@@ -208,52 +234,49 @@ public class Terrain
         ImGui.PopItemWidth();
         
         var actualRenderDistance = N * (1 << _LODs);
-        ImGui.Text($"Actual: {actualRenderDistance}m ({_LODs} LODs)");
-        ImGui.Value("Highest Quality", 2 * N, "%.0fm");
-        ImGui.Value("Step Size", _biggestSquares, "%.0fm");
+        ImGui.Text($"Actual: {actualRenderDistance.FormatDistance()} ({_LODs} LODs)");
+        ImGui.Text($"Highest Quality: {(2 * N).FormatDistance()}");
+        ImGui.Text($"Step Size: {_biggestSquares.FormatDistance()}");
         ImGui.Text($"Chunks: {_chunks} (Instanced)");
         var triangleCount = _chunks * N * N * 2;
         var naiveTriangleCount = actualRenderDistance * actualRenderDistance * 4 * 2;
         ImGui.Text(
-            $"Total Triangles: {triangleCount / 1000}K/{naiveTriangleCount / 1000}K ({(int) ((float) triangleCount / naiveTriangleCount * 100.0f)}%%)");
+            $"Total Triangles: {triangleCount.FormatCount()}/{naiveTriangleCount.FormatCount()} ({(int) ((float) triangleCount / naiveTriangleCount * 100.0f)}%%)");
+        
         ImGui.End();
     }
 
-    private record LoadedTile
+    private class LoadedTile
     {
+        private readonly int _lod;
         public Vector2i? Pos;
         public readonly StaticTexture Texture = new(new TextureInfo2D(null, SizedInternalFormat.R32f,
-            new Vector2i(TileSize), TextureWrapMode.ClampToEdge, false, false));
+            new Vector2i(BaseTileSize), TextureWrapMode.ClampToEdge, false, false));
 
         private float[]? _buffer;
 
-        // Export as grayscale heightmap
-        /*var path = $"Debug/tile_{Pos.X}_{Pos.Y}.pgm";
-        using var stream = File.OpenWrite(path);
-        stream.Write(Encoding.ASCII.GetBytes($"P5 {TileSize} {TileSize} {byte.MaxValue}\n"));
-        foreach (var height in data.GetTile(pos))
+        public LoadedTile(int lod)
         {
-            stream.WriteByte((byte)((height / 100.0 - 30.0)*8.0));
-        }*/
+            _lod = lod;
+        }
 
         public async void MoveTile(Vector2i pos)
         {
             Pos = pos;
             _buffer = null;
-            _buffer = await TerrainData.GetTile(pos);
+            _buffer = await TerrainData.GetTile(new Vector3i(pos.X, pos.Y, _lod));
         }
 
-        public void CheckLoaded(Terrain terrain, int i)
+        public bool TryUpload()
         {
-            if (_buffer is null) return;
+            if (_buffer is null) return false;
             Texture.UploadImageData(new TextureInfo2D(
                 new TextureData(_buffer!, PixelFormat.Red, PixelType.Float),
-                SizedInternalFormat.R32f, new Vector2i(TileSize),
+                SizedInternalFormat.R32f, new Vector2i(BaseTileSize),
                 TextureWrapMode.ClampToEdge, false, false)
             );
-            
-            foreach (var shader in terrain._dependentShaders)
-                shader.SetUniform($"tiles[{i}].pos", Pos!.Value.ToVector2());
+            _buffer = null;
+            return true;
         }
     }
 }

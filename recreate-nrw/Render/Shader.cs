@@ -17,19 +17,9 @@ public class Shader : IDisposable
     public Shader(string name)
     {
         _name = name;
-        var vertexShaderSource = Resources.GetCached($"Shaders/{name}.vert", Source.Embedded, stream =>
-        {
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            return reader.ReadToEnd();
-        });
-        var fragmentShaderSource = Resources.GetCached($"Shaders/{name}.frag", Source.Embedded, stream =>
-        {
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            return reader.ReadToEnd();
-        });
 
-        var vertexShader = CreateAndCompileShader(ShaderType.VertexShader, vertexShaderSource);
-        var fragmentShader = CreateAndCompileShader(ShaderType.FragmentShader, fragmentShaderSource);
+        var vertexShader = CreateAndCompileShader(name, ShaderType.VertexShader, $"Shaders/{name}.vert");
+        var fragmentShader = CreateAndCompileShader(name, ShaderType.FragmentShader, $"Shaders/{name}.frag");
         
         CreateAndLinkProgram(vertexShader, fragmentShader);
         
@@ -38,8 +28,14 @@ public class Shader : IDisposable
         Resources.RegisterDisposable(this);
     }
 
-    private static int CreateAndCompileShader(ShaderType shaderType, string shaderSource)
+    private static int CreateAndCompileShader(string name, ShaderType shaderType, string path)
     {
+        var shaderSource = Resources.GetCached(path, Source.Embedded, stream =>
+        {
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            return reader.ReadToEnd();
+        });
+        
         var shader = GL.CreateShader(shaderType);
         GL.ShaderSource(shader, shaderSource);
         GL.CompileShader(shader);
@@ -49,7 +45,13 @@ public class Shader : IDisposable
         if (success == (int) All.True) return shader;
 
         var infoLog = GL.GetShaderInfoLog(shader);
-        throw new Exception($"Error occurred whilst compiling Shader ({shader}) of type: {shaderType}.\n\n{infoLog}");
+        var shaderFile = shaderType switch
+        {
+            ShaderType.VertexShader => $"{name}.vert",
+            ShaderType.FragmentShader => $"{name}.frag",
+            _ => throw new ArgumentOutOfRangeException(nameof(shaderType), shaderType, null)
+        };
+        throw new Exception($"Error occurred whilst compiling Shader: {shaderFile}\n\n{infoLog}");
     }
 
     private void CreateAndLinkProgram(int vertexShader, int fragmentShader)
@@ -80,7 +82,7 @@ public class Shader : IDisposable
     {
         if (_uniforms.Find(uniform => uniform.Name == name) != null)
             throw new ArgumentException(
-                $"There is already a uniform with the name '{name}' on this shader ({_handle}).");
+                $"There is already a uniform with the name '{name}' on this shader ({_name}).");
         _uniforms.Add(new Uniform<T>(GetUniformLocation(name), name));
     }
 
@@ -88,7 +90,7 @@ public class Shader : IDisposable
     {
         if (_uniforms.Find(uniform => uniform.Name == name) != null)
             throw new ArgumentException(
-                $"There is already a uniform with the name '{name}' on this shader ({_handle}).");
+                $"There is already a uniform with the name '{name}' on this shader ({_name}).");
         _uniforms.Add(new Uniform<T>(GetUniformLocation(name), name, initial));
     }
 

@@ -1,6 +1,7 @@
 ﻿#version 460 core
 
 #define PI 3.1415926538
+#define TEXTURE_LODS 2
 
 in vec2 uv;
 
@@ -16,14 +17,18 @@ uniform float playerDirection;
 
 uniform int countDataTiles;
 uniform sampler1D dataTilesTexture;
+uniform float baseTerrainTileSize;
+uniform vec2[TEXTURE_LODS] terrainTextureCenters;
 
-const float terrainTileSize = 2048.0;
 const float playerIndicatorRadius = 8.0;
 const float playerIndicatorAntiAliasingWidth = 1.2;
+
+const float stripeThickness = 5.0;
 
 const vec3 backgroundColor = vec3(0.15, 0.15, 0.15);
 const vec3 dataGridFillColor = vec3(0.25, 0.25, 0.25);
 const vec3 dataGridColor = vec3(0.4, 0.4, 0.4);
+const vec3 tileGridFillColor = vec3(0.3, 0.5, 0.8);
 const vec3 tileGridColor = vec3(0.3, 0.5, 0.8);
 const vec3 playerIndicatorColor = vec3(0.2, 0.3, 5.0);
 
@@ -46,10 +51,11 @@ float calculatePlayerIndicator(vec2 worldPosition) {
 void main() {
     vec2 offset = uv * vec2(size * aspectRatio, size);
     vec2 worldPosition = position + offset;
-
+    vec2 worldPositionFloored = floor(worldPosition);
+    
     vec2 terrainDataUv = mod(worldPosition, 1000);
     float dataGrid = min(terrainDataUv.x / dFdxFine(worldPosition.x), terrainDataUv.y / dFdyFine(worldPosition.y)) > 1.0 ? 0.0 : 1.0;
-    vec2 terrainTileUv = mod(worldPosition, 2048);
+    vec2 terrainTileUv = mod(worldPosition, baseTerrainTileSize);
     float tileGrid = min(terrainTileUv.x / dFdxFine(worldPosition.x), terrainTileUv.y / dFdyFine(worldPosition.y)) > 1.0 ? 0.0 : 1.0;
     
     vec2 terrainDataPosition = (worldPosition - vec2(-346000, 5675000)) * vec2(1, -1);
@@ -60,10 +66,20 @@ void main() {
         dataTileAvailale = terrainDataTile == tilePosition ? 1.0 : dataTileAvailale;
     }
     
+    float activeTiles = 0.0;
+    for (int lod = 0; lod < TEXTURE_LODS; lod++) {
+        int size = 1 << lod;
+        float tileSize = baseTerrainTileSize * size;
+        vec2 index = floor(worldPositionFloored / tileSize);
+        activeTiles += (index.x == terrainTextureCenters[lod].x || index.x + 1 == terrainTextureCenters[lod].x) && (index.y == terrainTextureCenters[lod].y || index.y + 1 == terrainTextureCenters[lod].y) ? 1 : 0;
+    }
+    float tileActive = activeTiles / TEXTURE_LODS * (int(floor((gl_FragCoord.x + gl_FragCoord.y) / stripeThickness)) % 2);
+    
     vec3 backgroundMix = backgroundColor;
     vec3 dataGridFillMix = mix(backgroundMix, dataGridFillColor, dataTileAvailale);
     vec3 dataGridMix = mix(dataGridFillMix, dataGridColor, dataGrid);
-    vec3 tileGridMix = mix(dataGridMix, tileGridColor, tileGrid);
+    vec3 tileGridFillMix = mix(dataGridMix, tileGridFillColor, tileActive);
+    vec3 tileGridMix = mix(tileGridFillMix, tileGridColor, tileGrid);
     vec3 indicatorMix = mix(tileGridMix, playerIndicatorColor, calculatePlayerIndicator(worldPosition));
     FragColor = vec4(indicatorMix, 1.0);
 }

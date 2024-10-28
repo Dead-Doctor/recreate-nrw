@@ -13,6 +13,7 @@ public class Map
     
     private readonly Framebuffer _framebuffer = new(new Vector2i(200, 150), true, true, false);
     private readonly Camera _camera;
+    private readonly Terrain _terrain;
     public bool FollowPlayer = true;
     private Vector2 _position = Vector2.Zero;
     private float _size;
@@ -40,20 +41,26 @@ public class Map
         Shader.AddUniform<float>("playerDirection");
         Shader.AddUniform("countDataTiles", TerrainData.AvailableData.Count);
         Shader.AddTexture("dataTilesTexture", TerrainData.AvailableDataTilesTexture);
+        Shader.AddUniform<float>("baseTerrainTileSize", Coordinate.TerrainTileSize);
+        for (var i = 0; i < Terrain.TextureLODs; i++)
+        {
+            Shader.AddUniform<Vector2>($"terrainTextureCenters[{i}]");
+        }
         ShadedModel = new ShadedModel(model, Shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
     }
     
-    public Map(Camera camera)
+    public Map(Camera camera, Terrain terrain)
     {
         _camera = camera;
+        _terrain = terrain;
         Zoom = TargetZoom;
     }
 
     private Vector2 Position => _position + _dragDelta;
     public bool Hovered { get; private set; }
 
-    private const float ZoomMin = -2f;
-    private const float ZoomMax = 5f;
+    private const float ZoomMin = -4f;
+    private const float ZoomMax = 2f;
     private const float ZoomEpsilon = 0.001f;
     private float _zoom;
     private float _targetZoom;
@@ -96,6 +103,10 @@ public class Map
             Shader.SetUniform("frameHeight", (float)_framebuffer.Size.Y);
             Shader.SetUniform("aspectRatio", (float)_framebuffer.Size.X / _framebuffer.Size.Y);
             Shader.SetUniform("position", Position);
+            for (var i = 0; i < Terrain.TextureLODs; i++)
+            {
+                Shader.SetUniform<Vector2>($"terrainTextureCenters[{i}]", _terrain.Center[i]);
+            }
             Shader.SetUniform("size", _size);
             ShadedModel.Draw();
         });

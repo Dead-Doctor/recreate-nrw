@@ -1,8 +1,13 @@
 ﻿#version 460 core
 
+#define TEXTURE_LODS 2
+#define TEXTURES_PER_LOD 4
+
 // Vertex buffer
 in vec3 aPosition;
 in vec2 aUV;
+
+uniform int textureBaseSize;
 
 uniform int n;
 uniform float gridSize;
@@ -19,24 +24,27 @@ struct Tile
     sampler2D data;
 };
 
-uniform Tile tiles[4];
+uniform Tile tiles[TEXTURE_LODS][TEXTURES_PER_LOD];
 
 // Expects decimals
 float getHeight(vec2 pos) {
-    vec2 fraction = mod(mod(pos, 2048.0) + 2048.0, 2048.0) / 2048.0;
-    vec2 floored = floor(pos);
-    vec2 offsetInTile = mod(mod(floored, 2048.0) + 2048.0, 2048.0);
-    vec2 index = round((floored - offsetInTile) / 2048.0);
-    // Always sample textures to prevent mipmap errors at border
-    float sample0 = texture(tiles[0].data, fraction).r;
-    float sample1 = texture(tiles[1].data, fraction).r;
-    float sample2 = texture(tiles[2].data, fraction).r;
-    float sample3 = texture(tiles[3].data, fraction).r;
-    return tiles[0].pos == index ? sample0
-         : tiles[1].pos == index ? sample1
-         : tiles[2].pos == index ? sample2
-         : tiles[3].pos == index ? sample3
-         : 0.0;
+    float height = 0.0;
+    for (int lod = TEXTURE_LODS - 1; lod >= 0; lod--) {
+        int stepSize = 1 << lod;
+        int tileSize = textureBaseSize * stepSize;
+        vec2 offsetInTile = mod(mod(pos, tileSize) + tileSize, tileSize);
+        vec2 uv = offsetInTile / tileSize;
+        vec2 index = floor((floor(pos) - floor(offsetInTile)) / textureBaseSize);
+        float sample0 = texture(tiles[lod][0].data, uv).r;
+        float sample1 = texture(tiles[lod][1].data, uv).r;
+        float sample2 = texture(tiles[lod][2].data, uv).r;
+        float sample3 = texture(tiles[lod][3].data, uv).r;
+        height = tiles[lod][0].pos == index ? sample0 : height;
+        height = tiles[lod][1].pos == index ? sample1 : height;
+        height = tiles[lod][2].pos == index ? sample2 : height;
+        height = tiles[lod][3].pos == index ? sample3 : height;
+    }
+    return height;
 }
 
 vec4 cubic(float v)

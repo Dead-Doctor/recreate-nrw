@@ -1,4 +1,6 @@
-﻿using System.IO.Compression;
+﻿using System.Collections.Concurrent;
+using System.IO.Compression;
+using System.Text;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using recreate_nrw.Render;
@@ -20,7 +22,7 @@ namespace recreate_nrw.Ground;
 // y= origin.y - pos.z  |  z= -pos.y - origin.y
 //
 //
-// Data points lie on the vertices (integer coordinates)
+// Data points lie on the vertices (integer coordinates). Example: BaseTileSize = 1024, Lod = 1 (=> 2048)
 //                    |                    |
 //                    |                  2047    2049
 //             -2  -1 | 0   1   2 .. 2046  | 2048  
@@ -43,15 +45,16 @@ public static class TerrainData
 {
     private const int DataSize = Coordinate.TerrainDataSize;
     private const int DataArea = DataSize * DataSize;
-    private const int TileSize = Coordinate.TerrainTileSize;
-    private const int TileArea = TileSize * TileSize;
+    private const int BaseTileSize = Coordinate.TerrainTileSize;
+    private const int TileArea = BaseTileSize * BaseTileSize;
 
     public static readonly List<Vector2i> AvailableData = new();
     public static Texture AvailableDataTilesTexture { get; private set; }
 
-    private static readonly List<Vector2i> SavedTiles = new();
-    private static readonly Dictionary<Vector2i, float[]> TileCache = new();
-    private static readonly AsyncResourceLoader<Vector2i, float[]> TileLoader = new();
+    // tile: X: x, Y: z, Z: lod
+    private static readonly List<Vector3i> SavedTiles = new();
+    private static readonly ConcurrentDictionary<Vector3i, float[]> TileCache = new();
+    private static readonly AsyncResourceLoader<Vector3i, float[]> TileLoader = new();
     private static readonly AsyncResourceLoaderCached<Vector2i, float[]> DataLoaderCached = new();
 
     static TerrainData()
@@ -80,63 +83,97 @@ public static class TerrainData
     }
 
     //TODO: might crash when called twice for same tile in quick succession for the first time
-    public static async Task<float[]> GetTile(Vector2i pos)
+    public static async Task<float[]> GetTile(Vector3i pos)
     {
-        lock (TileCache)
-            if (TileCache.TryGetValue(pos, out var value))
-                return value;
+        if (TileCache.TryGetValue(pos, out var value))
+            return value;
 
         return await TileLoader.LoadResourceAsync(pos, () =>
         {
             var tile = SavedTiles.Contains(pos) ? LoadTile(pos) : CreateTile(pos);
-            lock (TileCache) TileCache.Add(pos, tile);
+            if (!TileCache.TryAdd(pos, tile)) Console.WriteLine("[WARNING] Reloaded already cached tile.");
             return tile;
         });
     }
 
-    private static float[] CreateTile(Vector2i pos)
+    private static float[] CreateTile(Vector3i pos)
     {
         var createTileTask = Profiler.Create($"CreateTile: ({pos.X}, {pos.Y})");
 
-        // y is inverted for data tiles. Exclusive: yStart, xEnd
-        var (xStart, yStart) = Coordinate.TerrainTileIndex(pos).TerrainData();
-        var (xEnd, yEnd) = Coordinate.TerrainTileIndex(pos + Vector2i.One).TerrainData();
-
-        var dataTileRows = TileSize / DataSize + 1;
-        if (OffsetInDataTile(yStart - 1) <= OffsetInDataTile(TileSize)) dataTileRows++;
-        var dataTileColumns = TileSize / DataSize + 1;
-        if (OffsetInDataTile(xEnd - 1) <= OffsetInDataTile(TileSize)) dataTileColumns++;
-
-        var topLeft = new Vector2i(xStart, yEnd) / DataSize;
-        var dataTiles = new Task<float[]>[dataTileRows * dataTileColumns];
-        for (var y = 0; y < dataTileRows; y++)
-        {
-            for (var x = 0; x < dataTileColumns; x++)
-            {
-                dataTiles[y * dataTileColumns + x] = GetData(topLeft + new Vector2i(x, y), createTileTask);
-            }
-        }
 
         var tile = new float[TileArea];
-
-        for (var yOffset = 0; yOffset < TileSize; yOffset++)
+        if (pos.Z == 0)
         {
-            var y = yEnd + yOffset;
+            // y is inverted for data tiles. Exclusive: yEnd, xEnd
+            var (xStart, yEnd) = Coordinate.TerrainTileIndex(pos.Xy).TerrainData();
+            var (xEnd, yStart) = Coordinate.TerrainTileIndex(pos.Xy + Vector2i.One).TerrainData();
 
-            var xStartStrip = xStart;
-            while (xStartStrip < xEnd)
+            var dataTileRows = BaseTileSize / DataSize + 1;
+            var dataTileColumns = BaseTileSize / DataSize + 1;
+            if ((yEnd - 1).Modulo(DataSize) <= BaseTileSize.Modulo(DataSize)) dataTileRows++;
+            if ((xEnd - 1).Modulo(DataSize) <= BaseTileSize.Modulo(DataSize)) dataTileColumns++;
+
+            var topLeft = (new Vector2(xStart, yStart) / DataSize).FloorToInt();
+            var dataTiles = new Task<float[]>[dataTileRows * dataTileColumns];
+            for (var y = 0; y < dataTileRows; y++)
             {
-                var stepToNextDataTile = DataSize - OffsetInDataTile(xStartStrip);
-                var xEndStrip = Math.Min(xStartStrip + stepToNextDataTile, xEnd); // Exclusive
+                for (var x = 0; x < dataTileColumns; x++)
+                {
+                    dataTiles[y * dataTileColumns + x] = GetData(topLeft + new Vector2i(x, y), createTileTask);
+                }
+            }
 
-                var relativeDataTile = new Vector2i(xStartStrip, y) / DataSize - topLeft;
-                var dataTileIndex = relativeDataTile.Y * dataTileColumns + relativeDataTile.X;
+            for (var yOffset = 0; yOffset < BaseTileSize; yOffset++)
+            {
+                var y = yStart + yOffset;
+                var dataRowStartIndex = y.Modulo(DataSize) * DataSize;
+                var tileRowStartIndex = (BaseTileSize - yOffset - 1) * BaseTileSize;
 
-                var dataIndex = OffsetInDataTile(y) * DataSize + OffsetInDataTile(xStartStrip);
-                var tileIndex = (TileSize - yOffset - 1) * TileSize + (xStartStrip - xStart);
-                Array.Copy(dataTiles[dataTileIndex].Result, dataIndex, tile, tileIndex, xEndStrip - xStartStrip);
+                var xStartStrip = xStart;
+                while (xStartStrip < xEnd)
+                {
+                    var xEndStrip = Math.Min(xStartStrip.FloorStep(DataSize) + DataSize, xEnd); // Exclusive
 
-                xStartStrip = xEndStrip;
+                    var relativeDataTile = (new Vector2(xStartStrip, y) / DataSize).FloorToInt() - topLeft;
+                    var dataTileIndex = relativeDataTile.Y * dataTileColumns + relativeDataTile.X;
+
+                    var dataIndex = dataRowStartIndex + xStartStrip.Modulo(DataSize);
+                    var tileIndex = tileRowStartIndex + (xStartStrip - xStart);
+                    Array.Copy(dataTiles[dataTileIndex].Result, dataIndex, tile, tileIndex, xEndStrip - xStartStrip);
+
+                    xStartStrip = xEndStrip;
+                }
+            }
+        }
+        else
+        {
+            var stepSize = 1 << pos.Z;
+            var stepsPerTile = BaseTileSize / stepSize;
+            
+            var tiles = new Task<float[]>[stepSize * stepSize];
+            for (var y = 0; y < stepSize; y++)
+            {
+                for (var x = 0; x < stepSize; x++)
+                {
+                    tiles[y * stepSize + x] = GetTile(new Vector3i(pos.X + x, pos.Y + y, 0));
+                }
+            }
+            for (var yTile = 0; yTile < stepSize; yTile++)
+            {
+                for (var xTile = 0; xTile < stepSize; xTile++)
+                {
+                    for (var yOffset = 0; yOffset < stepsPerTile; yOffset++)
+                    {
+                        var y = yTile * stepsPerTile + yOffset;
+                        var yWithin = yOffset * stepSize;
+                        for (var xOffset = 0; xOffset < stepsPerTile; xOffset++)
+                        {
+                            var x = xTile * stepsPerTile + xOffset;
+                            var xWithin = xOffset * stepSize;
+                            tile[y * BaseTileSize + x] = tiles[yTile * stepSize + xTile].Result[yWithin * BaseTileSize + xWithin];
+                        }
+                    }
+                }
             }
         }
 
@@ -145,20 +182,24 @@ public static class TerrainData
         return tile;
     }
 
-    private static int OffsetInDataTile(int pos)
-    {
-        return pos.Modulo(DataSize);
-    }
-
-    private static float[] LoadTile(Vector2i pos)
+    private static float[] LoadTile(Vector3i pos)
     {
         throw new NotImplementedException("Not implemented yet!");
     }
 
-    private static void SaveTile(Vector2i pos, float[] tile)
+    private static void SaveTile(Vector3i pos, float[] tile)
     {
         //TODO: Not implemented yet!
         // _savedTiles.Add(pos);
+        
+        /*// Export as grayscale heightmap
+        var path = $"Debug/tile_{pos.Z}_{pos.X}_{pos.Y}.pgm";
+        using var stream = File.OpenWrite(path);
+        stream.Write(Encoding.ASCII.GetBytes($"P5 {BaseTileSize} {BaseTileSize} {byte.MaxValue}\n"));
+        foreach (var height in tile)
+        {
+            stream.WriteByte((byte)((height - 30f) / (50f - 30f) * 255));
+        }*/
     }
 
     //TODO: delete after all tiles have been created using this datatile
@@ -202,7 +243,7 @@ public static class TerrainData
         for (var i = 0; i < blocks; i++)
         {
             reader.ReadBlock(buffer, 0, buffer.Length);
-            
+
             for (var j = 0; j < linesPerBlock; j++)
             {
                 var height = 0;
@@ -227,10 +268,11 @@ public static class TerrainData
     public static float? GetHeightAt(Vector2i pos)
     {
         var coordinate = Coordinate.TerrainTile(pos);
-        var task = GetTile(coordinate.TerrainTileIndex());
+        var terrainTileIndex = coordinate.TerrainTileIndex();
+        var task = GetTile(new Vector3i(terrainTileIndex.X, terrainTileIndex.Y, 0));
         if (!task.IsCompletedSuccessfully) return null;
         var tile = task.Result;
-        var offset = coordinate.TerrainTile().Modulo(TileSize);
-        return tile[offset.Y * TileSize + offset.X];
+        var offset = coordinate.TerrainTile().Modulo(BaseTileSize);
+        return tile[offset.Y * BaseTileSize + offset.X];
     }
 }

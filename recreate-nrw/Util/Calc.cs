@@ -39,11 +39,23 @@ public static class Calc
         new((int) Math.Floor(vec.X), (int) Math.Floor(vec.Y), (int) Math.Floor(vec.Z));
 
     [PublicAPI]
+    public static Box2 GrowToBox(this Vector2 vec, float radius) => new(vec - new Vector2(radius), vec + new Vector2(radius));
+    
+    [PublicAPI]
+    public static Box3 GrowToBox(this Vector3 vec, float radius) => new(vec - new Vector3(radius), vec + new Vector3(radius));
+    
+    [PublicAPI]
     public static int Modulo(this int value, int step) => (value % step + step) % step;
 
     [PublicAPI]
     public static float Modulo(this float value, float step) => (value % step + step) % step;
 
+    [PublicAPI]
+    public static int FloorStep(this int value, int step) => value - value.Modulo(step);
+    
+    [PublicAPI]
+    public static int CeilStep(this int value, int step) => value + (-value).Modulo(step);
+    
     [PublicAPI]
     public static Vector2i Modulo(this Vector2i value, int step) =>
         new(value.X.Modulo(step), value.Y.Modulo(step));
@@ -59,12 +71,4 @@ public static class Calc
     [PublicAPI]
     public static Vector3 Modulo(this Vector3 value, float step) =>
         new(value.X.Modulo(step), value.Y.Modulo(step), value.Z.Modulo(step));
-    
-    [PublicAPI]
-    public static string FormatDuration(this TimeSpan duration) =>
-        duration.TotalSeconds < 1.0 ? $"{duration.TotalMilliseconds:N0}ms"
-        : duration.TotalMinutes < 1.0 ? $"{duration.TotalSeconds:N1}s"
-        : duration.TotalHours < 1.0 ? $"{duration.TotalMinutes:N1}min"
-        : duration.TotalDays < 1.0 ? $"{duration.TotalHours:N1}min"
-        : $"{duration.TotalDays:N1}min";
 }

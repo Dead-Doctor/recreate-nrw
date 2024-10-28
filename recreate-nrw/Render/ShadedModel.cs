@@ -42,6 +42,8 @@ public class ShadedModel : IDisposable
         foreach (var attribute in _model.VertexAttributes)
         {
             var attribIndex = Shader.GetAttribLocation(attribute.Name);
+            if (attribIndex == -1)
+                throw new ArgumentException($"Could not find vertex attribute '{attribute.Name}' in shader ({Shader}). Maybe uniform got optimized away!!!!!!");
             GL.EnableVertexArrayAttrib(_vao, attribIndex);
             GL.VertexArrayAttribBinding(_vao, attribIndex, bindingIndex);
             GL.VertexArrayAttribFormat(_vao, attribIndex, attribute.Count, attribute.Type, attribute.Normalized,

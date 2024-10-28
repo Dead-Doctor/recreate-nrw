@@ -5,7 +5,7 @@ namespace recreate_nrw.Util;
 
 public readonly struct Coordinate
 {
-    public const int TerrainTileSize = 2048;
+    public const int TerrainTileSize = 512;
     public const int TerrainDataSize = 1000;
 
     /// <summary>
@@ -45,10 +45,10 @@ public readonly struct Coordinate
         // in middle of
         // zone
         const int longOrigin = (zoneNumber - 1) * 6 - 180 + 3; //+3 puts origin
-        var longOriginRad = DegreeToRadian(longOrigin);
+        var longOriginRad = MathHelper.DegreesToRadians(longOrigin);
 
-        var latRad = DegreeToRadian(pos.X);
-        var longRad = DegreeToRadian(pos.Y);
+        var latRad = MathHelper.DegreesToRadians(pos.X);
+        var longRad = MathHelper.DegreesToRadians(pos.Y);
 
         var n = r / Math.Sqrt(1 - eccSq * Math.Sin(latRad) * Math.Sin(latRad));
         var t = Math.Tan(latRad) * Math.Tan(latRad);
@@ -147,7 +147,7 @@ public readonly struct Coordinate
             * a * a * a / 6 + (5 - 2 * c1 + 28 * t1 - 3 * c1 * c1 + 8 * eccPrimeSquared + 24 * t1 * t1)
             * a * a * a * a * a / 120) / Math.Cos(phi1Rad);
 
-        return new Vector2((float)RadianToDegree(lat), (float)(longOrigin + RadianToDegree(lon)));
+        return new Vector2((float)MathHelper.RadiansToDegrees(lat), (float)(longOrigin + MathHelper.RadiansToDegrees(lon)));
     }
 
     [PublicAPI]
@@ -166,7 +166,4 @@ public readonly struct Coordinate
     private static Vector2 WithoutHeight(Vector3 pos) => new(pos.X, pos.Z);
     private static Vector3i WithHeight(Vector2i pos, int height) => new(pos.X, height, pos.Y);
     private static Vector3 WithHeight(Vector2 pos, float height) => new(pos.X, height, pos.Y);
-
-    private static double DegreeToRadian(double angle) => Math.PI * angle / 180.0;
-    private static double RadianToDegree(double angle) => 180.0 * angle / Math.PI;
 }
