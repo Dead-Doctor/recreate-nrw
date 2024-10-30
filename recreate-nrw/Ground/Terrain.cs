@@ -19,7 +19,7 @@ public class Terrain
     private int _biggestSquares;
     private int _chunks;
 
-    public const int TextureLODs = 2;
+    public const int TextureLODs = 4;
     private const int TexturesPerLOD = 4;
     private const float SwitchRegionSize = 0.375f;
 
@@ -56,17 +56,17 @@ public class Terrain
     }
 
     public readonly Vector2i[] Center = new Vector2i[TextureLODs];
-    private readonly LoadedTile[][] _loadedTiles = new LoadedTile[TextureLODs][];
+    private readonly LoadedTile[] _loadedTiles = new LoadedTile[TextureLODs * TexturesPerLOD];
 
     private readonly StaticTexture _tilesTexture = StaticTexture.CreateFrom(new TextureInfo2DArray(null,
         SizedInternalFormat.R32f,
         new Vector2i(BaseTileSize), TexturesPerLOD * TextureLODs, TextureWrapMode.ClampToEdge, false, false));
-
-    private readonly List<Shader> _dependentShaders = new();
+    private readonly StaticTexture _tilesPosTexture =
+        StaticTexture.CreateFrom(new TextureInfo1D(null, SizedInternalFormat.Rg32f, TextureLODs * TexturesPerLOD));
 
     public Terrain()
     {
-        RenderDistance = 512;
+        RenderDistance = 2048;
 
         _shader = new Shader("terrain");
         _shader.AddUniform<Vector2>("modelPos");
@@ -78,10 +78,9 @@ public class Terrain
 
         for (var lod = 0; lod < TextureLODs; lod++)
         {
-            _loadedTiles[lod] = new LoadedTile[TexturesPerLOD];
             for (var i = 0; i < TexturesPerLOD; i++)
             {
-                _loadedTiles[lod][i] = new LoadedTile(lod);
+                _loadedTiles[lod * TexturesPerLOD + i] = new LoadedTile();
             }
             SwitchTiles(lod, Vector2.Zero);
         }
@@ -94,17 +93,9 @@ public class Terrain
     public void AddDependentShader(Shader shader)
     {
         Console.WriteLine($"Marked shader '{shader}' as dependent.");
-        _dependentShaders.Add(shader);
         shader.AddUniform("textureBaseSize", BaseTileSize);
-        for (var lod = 0; lod < TextureLODs; lod++)
-        {
-            for (var i = 0; i < TexturesPerLOD; i++)
-            {
-                var tilePos = _loadedTiles[lod][i].Pos!.Value;
-                shader.AddUniform($"tilePos[{lod * TexturesPerLOD + i}]", tilePos.ToVector2());
-            }
-        }
         shader.AddTexture("tileData", _tilesTexture);
+        shader.AddTexture("tilePos", _tilesPosTexture);
     }
 
     private void GenerateModel()
@@ -185,13 +176,8 @@ public class Terrain
             for (var i = 0; i < TexturesPerLOD; i++)
             {
                 var index = lod * TexturesPerLOD + i;
-                var loadedTile = _loadedTiles[lod][i];
-                if (!loadedTile.TryUpload(_tilesTexture, index)) continue;
-                foreach (var shader in _dependentShaders)
-                {
-                    var tilePos = loadedTile.Pos!.Value;
-                    shader.SetUniform($"tilePos[{index}]", tilePos.ToVector2());
-                }
+                var loadedTile = _loadedTiles[index];
+                loadedTile.TryUpload(index, _tilesTexture, _tilesPosTexture);
             }
         }
     }
@@ -211,10 +197,9 @@ public class Terrain
     private void Load(int lod, Vector2i tileSpacePos)
     {
         var i = tileSpacePos.Y.Modulo(2) * 2 + tileSpacePos.X.Modulo(2);
-        var tile = _loadedTiles[lod][i];
+        var tile = _loadedTiles[lod * TexturesPerLOD + i];
         var stepSize = 1 << lod;
-        var tilePos = tileSpacePos * stepSize;
-        if (tile.Pos == tilePos) return;
+        var tilePos = new Vector3i(tileSpacePos * stepSize, lod);
         tile.MoveTile(tilePos);
     }
 
@@ -223,9 +208,10 @@ public class Terrain
         ImGui.Begin("Terrain");
 
         const int bytesPerTexture = BaseTileSize * BaseTileSize * sizeof(float);
+        const int totalTextureSize = TextureLODs * TexturesPerLOD * bytesPerTexture;
         ImGui.Text($"Texture Size: {bytesPerTexture.FormatSize()}");
         ImGui.Text($"Texture LODs: {TextureLODs}");
-        ImGui.Text($"Total texture size: {(TextureLODs * TexturesPerLOD * bytesPerTexture).FormatSize()}");
+        ImGui.Text($"Total texture size: {totalTextureSize.FormatSize()}");
         const int biggestLodSize = BaseTileSize << (TextureLODs - 1);
         ImGui.Text(
             $"Texture coverage distance (worse/best): ({(biggestLodSize * SwitchRegionSize).FormatDistance()}/{biggestLodSize.FormatDistance()})");
@@ -255,37 +241,37 @@ public class Terrain
         ImGui.End();
     }
 
-    private class LoadedTile
+    private struct LoadedTile
     {
-        private readonly int _lod;
+        private Vector3i _pos = Vector3i.Zero;
+        private float[]? _buffer = null;
 
-        public Vector2i? Pos;
-        // public readonly StaticTexture Texture = StaticTexture.CreateFrom(new TextureInfo2D(null, SizedInternalFormat.R32f,
-        //     new Vector2i(BaseTileSize), TextureWrapMode.ClampToEdge, false, false));
-
-        private float[]? _buffer;
-
-        public LoadedTile(int lod)
+        public LoadedTile()
         {
-            _lod = lod;
         }
 
-        public async void MoveTile(Vector2i pos)
+        public async void MoveTile(Vector3i pos)
         {
-            Pos = pos;
+            if (_pos == pos) return;
+            _pos = pos;
             _buffer = null;
-            _buffer = await TerrainData.GetTile(new Vector3i(pos.X, pos.Y, _lod));
+            _buffer = await TerrainData.GetTile(pos);
         }
 
-        public bool TryUpload(StaticTexture tilesTexture, int layer)
+        public void TryUpload(int index, StaticTexture tilesTexture, StaticTexture tilesPosTexture)
         {
-            if (_buffer is null) return false;
+            if (_buffer is null) return;
+            
             tilesTexture.UploadImageData(new TextureInfo2DArray(
-                new TextureData2DArray(_buffer!, PixelFormat.Red, PixelType.Float, null, layer, null, 1),
+                new TextureData2DArray(_buffer!, PixelFormat.Red, PixelType.Float, null, index, null, 1),
                 SizedInternalFormat.R32f,
                 new Vector2i(BaseTileSize), TexturesPerLOD * TextureLODs, TextureWrapMode.ClampToEdge, false, false));
+            
+            tilesPosTexture.UploadImageData(new TextureInfo1D(
+                new TextureData1D(new float[] { _pos.X, _pos.Y }, PixelFormat.Rg, PixelType.Float, index, 1),
+                SizedInternalFormat.Rg32f, TextureLODs * TexturesPerLOD));
+            
             _buffer = null;
-            return true;
         }
     }
 }

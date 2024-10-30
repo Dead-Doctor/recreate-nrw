@@ -1,6 +1,5 @@
 ﻿#version 460 core
 
-#define TEXTURE_LODS 2
 #define TEXTURES_PER_LOD 4
 
 in vec2 pos;
@@ -12,13 +11,15 @@ uniform int textureBaseSize;
 uniform vec3 sunDir;
 uniform int debug;
 
-uniform vec2 tilePos[TEXTURE_LODS * TEXTURES_PER_LOD];
 uniform sampler2DArray tileData;
+uniform sampler1D tilePos;
 
 // Expects decimals
 float getHeight(vec2 pos, vec2 dx, vec2 dy) {
     float height = 0.0;
-    for (int lod = TEXTURE_LODS - 1; lod >= 0; lod--) {
+    int tileCount = textureSize(tilePos, 0);
+    int lodCount = tileCount / TEXTURES_PER_LOD;
+    for (int lod = lodCount - 1; lod >= 0; lod--) {
         int stepSize = 1 << lod;
         int tileSize = textureBaseSize * stepSize;
         vec2 offsetInTile = mod(mod(pos, tileSize) + tileSize, tileSize);
@@ -27,7 +28,7 @@ float getHeight(vec2 pos, vec2 dx, vec2 dy) {
         for (int i = 0; i < TEXTURES_PER_LOD; i++) {
             int index = lod * TEXTURES_PER_LOD + i;
             float sampled = textureGrad(tileData, vec3(uv, index), dx, dy).r;
-            height = tilePos[index] == currentTilePos ? sampled : height;
+            height = texelFetch(tilePos, index, 0).xy == currentTilePos ? sampled : height;
         }
     }
     return height;
@@ -106,5 +107,5 @@ void main()
     float ambient = 0.3;
     float diffuse = 0.7 * max(dot(sunDir, normal), 0.0);
     FragColor = (ambient + diffuse) * vec4(1.0);
-    if (debug == 1) FragColor = vec4(1.0, 1.0, 1.0, 0.0);
+    if (debug == 1) FragColor = vec4(1.0, texelFetch(tilePos, 0, 0).xy / 2.0, 0.0);
 }

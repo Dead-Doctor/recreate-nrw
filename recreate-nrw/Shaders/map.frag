@@ -1,7 +1,6 @@
 ﻿#version 460 core
 
 #define PI 3.1415926538
-#define TEXTURE_LODS 2
 
 in vec2 uv;
 
@@ -15,10 +14,9 @@ uniform float size;
 uniform vec2 playerPosition;
 uniform float playerDirection;
 
-uniform int countDataTiles;
 uniform sampler1D dataTilesTexture;
 uniform float baseTerrainTileSize;
-uniform vec2[TEXTURE_LODS] terrainTextureCenters;
+uniform sampler1D terrainTextureCenters;
 
 const float playerIndicatorRadius = 8.0;
 const float playerIndicatorAntiAliasingWidth = 1.2;
@@ -61,19 +59,22 @@ void main() {
     vec2 terrainDataPosition = (worldPosition - vec2(-346000, 5675000)) * vec2(1, -1);
     vec2 terrainDataTile = floor(terrainDataPosition / 1000.0);
     float dataTileAvailale = 0.0;
+    int countDataTiles = textureSize(dataTilesTexture, 0);
     for (int i = 0; i < countDataTiles; i++) {
         vec2 tilePosition = texelFetch(dataTilesTexture, i, 0).xy;
         dataTileAvailale = terrainDataTile == tilePosition ? 1.0 : dataTileAvailale;
     }
     
     float activeTiles = 0.0;
-    for (int lod = 0; lod < TEXTURE_LODS; lod++) {
+    int terrainTextureLods = textureSize(terrainTextureCenters, 0);
+    for (int lod = 0; lod < terrainTextureLods; lod++) {
         int size = 1 << lod;
         float tileSize = baseTerrainTileSize * size;
         vec2 index = floor(worldPositionFloored / tileSize);
-        activeTiles += (index.x == terrainTextureCenters[lod].x || index.x + 1 == terrainTextureCenters[lod].x) && (index.y == terrainTextureCenters[lod].y || index.y + 1 == terrainTextureCenters[lod].y) ? 1 : 0;
+        vec2 center = texelFetch(terrainTextureCenters, lod, 0).xy;
+        activeTiles += (index.x == center.x || index.x + 1 == center.x) && (index.y == center.y || index.y + 1 == center.y) ? 1 : 0;
     }
-    float tileActive = activeTiles / TEXTURE_LODS * (int(floor((gl_FragCoord.x + gl_FragCoord.y) / stripeThickness)) % 2);
+    float tileActive = activeTiles / terrainTextureLods * (int(floor((gl_FragCoord.x + gl_FragCoord.y) / stripeThickness)) % 2);
     
     vec3 backgroundMix = backgroundColor;
     vec3 dataGridFillMix = mix(backgroundMix, dataGridFillColor, dataTileAvailale);

@@ -1,6 +1,5 @@
 ﻿#version 460 core
 
-#define TEXTURE_LODS 2
 #define TEXTURES_PER_LOD 4
 
 // Vertex buffer
@@ -18,13 +17,15 @@ uniform vec3 origin;
 uniform mat4 viewMat;
 uniform mat4 projectionMat;
 
-uniform vec2 tilePos[TEXTURE_LODS * TEXTURES_PER_LOD];
 uniform sampler2DArray tileData;
+uniform sampler1D tilePos;
 
 // Expects decimals
 float getHeight(vec2 pos) {
     float height = 0.0;
-    for (int lod = TEXTURE_LODS - 1; lod >= 0; lod--) {
+    int tileCount = textureSize(tilePos, 0);
+    int lodCount = tileCount / TEXTURES_PER_LOD;
+    for (int lod = lodCount - 1; lod >= 0; lod--) {
         int stepSize = 1 << lod;
         int tileSize = textureBaseSize * stepSize;
         vec2 offsetInTile = mod(mod(pos, tileSize) + tileSize, tileSize);
@@ -33,7 +34,7 @@ float getHeight(vec2 pos) {
         for (int i = 0; i < TEXTURES_PER_LOD; i++) {
             int index = lod * TEXTURES_PER_LOD + i;
             float sampled = texture(tileData, vec3(uv, index)).r;
-            height = tilePos[index] == currentTilePos ? sampled : height;
+            height = texelFetch(tilePos, index, 0).xy == currentTilePos ? sampled : height;
         }
     }
     return height;

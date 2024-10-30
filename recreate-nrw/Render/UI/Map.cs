@@ -10,7 +10,10 @@ public class Map
 {
     private static readonly Shader Shader = new("map");
     private static readonly ShadedModel ShadedModel;
-    
+
+    private static readonly StaticTexture TerrainTextureCenters =
+        StaticTexture.CreateFrom(new TextureInfo1D(null, SizedInternalFormat.Rg32f, Terrain.TextureLODs));
+
     private readonly Framebuffer _framebuffer = new(new Vector2i(200, 150), true, true, false);
     private readonly Camera _camera;
     private readonly Terrain _terrain;
@@ -22,33 +25,31 @@ public class Map
 
     static Map()
     {
-        var model = Model.FromArray(new[] {
+        var model = Model.FromArray(new[]
+        {
             -1f, -1f,
             1f, -1f,
             1f, 1f,
             -1f, 1f,
-        }, new[] {
+        }, new[]
+        {
             0u, 1u, 2u,
             0u, 2u, 3u
         });
         model.AddVertexAttribute(new VertexAttribute("aPos", VertexAttribType.Float, 2));
-        
+
         Shader.AddUniform<float>("frameHeight");
         Shader.AddUniform<float>("aspectRatio");
         Shader.AddUniform<Vector2>("position");
         Shader.AddUniform<float>("size");
         Shader.AddUniform<Vector2>("playerPosition");
         Shader.AddUniform<float>("playerDirection");
-        Shader.AddUniform("countDataTiles", TerrainData.AvailableData.Count);
         Shader.AddTexture("dataTilesTexture", TerrainData.AvailableDataTilesTexture);
         Shader.AddUniform<float>("baseTerrainTileSize", Coordinate.TerrainTileSize);
-        for (var i = 0; i < Terrain.TextureLODs; i++)
-        {
-            Shader.AddUniform<Vector2>($"terrainTextureCenters[{i}]");
-        }
+        Shader.AddTexture("terrainTextureCenters", TerrainTextureCenters);
         ShadedModel = new ShadedModel(model, Shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
     }
-    
+
     public Map(Camera camera, Terrain terrain)
     {
         _camera = camera;
@@ -70,7 +71,7 @@ public class Map
         get => _targetZoom;
         set => _targetZoom = Math.Clamp(value, ZoomMin, ZoomMax);
     }
-    
+
     private float Zoom
     {
         get => _zoom;
@@ -87,15 +88,15 @@ public class Map
             (int)Math.Max(size.X == 0.0 ? maxSize.X : size.X, 10f),
             (int)Math.Max(size.Y == 0.0 ? maxSize.Y : size.Y, 10f)
         );
-        
+
         var difference = TargetZoom - Zoom;
-        if (Math.Abs(difference) > ZoomEpsilon) 
+        if (Math.Abs(difference) > ZoomEpsilon)
         {
             Zoom += difference * deltaTime * 3f;
         }
-        
+
         if (FollowPlayer) _position = _camera.Position.Xz;
-        
+
         _framebuffer.Use(() =>
         {
             Shader.SetUniform("playerPosition", _camera.Position.Xz);
@@ -103,10 +104,15 @@ public class Map
             Shader.SetUniform("frameHeight", (float)_framebuffer.Size.Y);
             Shader.SetUniform("aspectRatio", (float)_framebuffer.Size.X / _framebuffer.Size.Y);
             Shader.SetUniform("position", Position);
+            var centersData = new float[Terrain.TextureLODs * 2];
             for (var i = 0; i < Terrain.TextureLODs; i++)
             {
-                Shader.SetUniform<Vector2>($"terrainTextureCenters[{i}]", _terrain.Center[i]);
+                centersData[i * 2 + 0] = _terrain.Center[i].X;
+                centersData[i * 2 + 1] = _terrain.Center[i].Y;
             }
+            TerrainTextureCenters.UploadImageData(new TextureInfo1D(
+                new TextureData1D(centersData, PixelFormat.Rg, PixelType.Float),
+                SizedInternalFormat.Rg32f, Terrain.TextureLODs));
             Shader.SetUniform("size", _size);
             ShadedModel.Draw();
         });
@@ -115,10 +121,10 @@ public class Map
     public void Window(Vector2 size)
     {
         var io = ImGui.GetIO();
-        
+
         var maxSize = ImGui.GetContentRegionAvail().ToVector2() - ImGui.GetStyle().FramePadding.ToVector2() * 2;
         Redraw(maxSize, size, io.DeltaTime);
-        
+
         var mousePos = (io.MousePos - ImGui.GetCursorScreenPos() - ImGui.GetStyle().FramePadding).ToVector2();
         var relativeMousePos = (mousePos * 2f - _framebuffer.Size.ToVector2()) / _framebuffer.Size.Y;
         var worldPosition = _position + relativeMousePos * _size;
@@ -129,7 +135,7 @@ public class Map
         {
             var scroll = io.MouseWheel;
             if (scroll != 0f) TargetZoom += scroll;
-            
+
             if (ImGui.IsMouseReleased(ImGuiMouseButton.Right))
             {
                 _clickPosition = worldPosition;
@@ -142,6 +148,7 @@ public class Map
             _dragDelta = -ImGui.GetMouseDragDelta(ImGuiMouseButton.Left).ToVector2() * 2f / _framebuffer.Size.Y * _size;
             if (_dragDelta != Vector2.Zero) FollowPlayer = false;
         }
+
         if (ImGui.IsItemDeactivated())
         {
             _position += _dragDelta;
@@ -156,6 +163,7 @@ public class Map
                 ImGui.CloseCurrentPopup();
                 _camera.Position = new Vector3(_clickPosition.X, _camera.Position.Y, _clickPosition.Y);
             }
+
             ImGui.EndPopup();
         }
     }
