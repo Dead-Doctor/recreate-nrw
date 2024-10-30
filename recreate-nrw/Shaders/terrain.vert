@@ -1,7 +1,5 @@
 ﻿#version 460 core
 
-#define TEXTURES_PER_LOD 4
-
 in vec2 aPosition;
 
 out vec2 pos;
@@ -13,6 +11,7 @@ uniform mat4 projectionMat;
 uniform int n;
 
 uniform int textureBaseSize;
+uniform int texturesPerLod;
 
 //TODO: Upsample heightmap using bicubic interpolation (decrease size of triangles)
 uniform sampler2DArray tileData;
@@ -47,15 +46,15 @@ float xor(float a, float b)
 float getHeight(vec2 pos) {
     float height = 0.0;
     int tileCount = textureSize(tilePos, 0);
-    int lodCount = tileCount / TEXTURES_PER_LOD;
+    int lodCount = tileCount / texturesPerLod;
     for (int lod = lodCount - 1; lod >= 0; lod--) {
         int stepSize = 1 << lod;
         int tileSize = textureBaseSize * stepSize;
         vec2 offsetInTile = mod(mod(pos, tileSize) + tileSize, tileSize);
         ivec2 uv = ivec2(round(offsetInTile / stepSize));
         vec2 currentTilePos = floor((pos - offsetInTile) / textureBaseSize);
-        for (int i = 0; i < TEXTURES_PER_LOD; i++) {
-            int index = lod * TEXTURES_PER_LOD + i;
+        for (int i = 0; i < texturesPerLod; i++) {
+            int index = lod * texturesPerLod + i;
             float sampled = texelFetch(tileData, ivec3(uv, index), 0).r;
             height = texelFetch(tilePos, index, 0).xy == currentTilePos ? sampled : height;
         }

@@ -47,6 +47,7 @@ public class Map
         Shader.AddTexture("dataTilesTexture", TerrainData.AvailableDataTilesTexture);
         Shader.AddUniform<float>("baseTerrainTileSize", Coordinate.TerrainTileSize);
         Shader.AddTexture("terrainTextureCenters", TerrainTextureCenters);
+        Shader.AddUniform("terrainTilesPerLod", Terrain.TextureLODSize);
         ShadedModel = new ShadedModel(model, Shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
     }
 

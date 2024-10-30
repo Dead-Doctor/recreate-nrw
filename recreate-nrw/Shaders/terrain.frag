@@ -1,12 +1,11 @@
 ﻿#version 460 core
 
-#define TEXTURES_PER_LOD 4
-
 in vec2 pos;
 
 out vec4 FragColor;
 
 uniform int textureBaseSize;
+uniform int texturesPerLod;
 
 uniform vec3 sunDir;
 uniform int debug;
@@ -18,15 +17,15 @@ uniform sampler1D tilePos;
 float getHeight(vec2 pos, vec2 dx, vec2 dy) {
     float height = 0.0;
     int tileCount = textureSize(tilePos, 0);
-    int lodCount = tileCount / TEXTURES_PER_LOD;
+    int lodCount = tileCount / texturesPerLod;
     for (int lod = lodCount - 1; lod >= 0; lod--) {
         int stepSize = 1 << lod;
         int tileSize = textureBaseSize * stepSize;
         vec2 offsetInTile = mod(mod(pos, tileSize) + tileSize, tileSize);
         vec2 uv = offsetInTile / tileSize;
         vec2 currentTilePos = floor((floor(pos) - floor(offsetInTile)) / textureBaseSize);
-        for (int i = 0; i < TEXTURES_PER_LOD; i++) {
-            int index = lod * TEXTURES_PER_LOD + i;
+        for (int i = 0; i < texturesPerLod; i++) {
+            int index = lod * texturesPerLod + i;
             float sampled = textureGrad(tileData, vec3(uv, index), dx, dy).r;
             height = texelFetch(tilePos, index, 0).xy == currentTilePos ? sampled : height;
         }

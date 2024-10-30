@@ -79,6 +79,6 @@ public static class ImGuiExtension
         : bytes < 10 * 1_024 ? FormatValue(bytes/1_024.0, "{0:N1}KB")
         : bytes < 1_024 * 1_024 ? FormatValue(bytes/1_024.0, "{0:N0}KB")
         : bytes < 10 * 1_024 * 1_024 ? FormatValue(bytes/(1_024.0*1_024.0), "{0:N1}MB")
-        : bytes < 1_024 * 1_024 * 1_024 ? FormatValue(bytes/(1_024.0*1_024.0*1_024.0), "{0:N0}MB")
+        : bytes < 1_024 * 1_024 * 1_024 ? FormatValue(bytes/(1_024.0*1_024.0), "{0:N0}MB")
         : FormatValue(bytes/(1_024.0*1_024.0*1_024.0), "{0:N1}GB");
 }

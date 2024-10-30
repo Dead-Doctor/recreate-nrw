@@ -17,6 +17,7 @@ uniform float playerDirection;
 uniform sampler1D dataTilesTexture;
 uniform float baseTerrainTileSize;
 uniform sampler1D terrainTextureCenters;
+uniform int terrainTilesPerLod;
 
 const float playerIndicatorRadius = 8.0;
 const float playerIndicatorAntiAliasingWidth = 1.2;
@@ -72,7 +73,8 @@ void main() {
         float tileSize = baseTerrainTileSize * size;
         vec2 index = floor(worldPositionFloored / tileSize);
         vec2 center = texelFetch(terrainTextureCenters, lod, 0).xy;
-        activeTiles += (index.x == center.x || index.x + 1 == center.x) && (index.y == center.y || index.y + 1 == center.y) ? 1 : 0;
+        float maxDistanceToCenter = (terrainTilesPerLod - 1.0) / 2.0;
+        activeTiles += abs((index.x + 0.5) - center.x) <= maxDistanceToCenter && abs((index.y + 0.5) - center.y) <= maxDistanceToCenter ? 1 : 0;
     }
     float tileActive = activeTiles / terrainTextureLods * (int(floor((gl_FragCoord.x + gl_FragCoord.y) / stripeThickness)) % 2);
     
