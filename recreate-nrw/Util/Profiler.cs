@@ -58,6 +58,13 @@ public class Profiler
         }
     }
 
+    public void Start(string name, Action<Profiler> action)
+    {
+        var task = Start(name);
+        action(task);
+        task.Stop();
+    }
+    
     private const float GapY = 15.0f;
     private const float ButtonHeight = 20.0f;
     private const float PaddingX = 1.0f;
@@ -149,7 +156,8 @@ public class Profiler
         ImGui.PushStyleColor(ImGuiCol.ButtonHovered, ImGuiExtension.Hsv(hue, 0.7f, 0.7f));
         ImGui.PushStyleColor(ImGuiCol.ButtonActive, ImGuiExtension.Hsv(hue, 0.8f, 0.8f));
 
-        if (ImGui.Button(Description, new Vector2(endX - startX - PaddingX * 2, ButtonHeight)))
+        var size = new Vector2(Math.Max(endX - startX - PaddingX * 2, 1f), ButtonHeight);
+        if (ImGui.Button(Description, size))
         {
             _selectedNode = this;
         }

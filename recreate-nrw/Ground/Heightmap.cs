@@ -1,4 +1,5 @@
-﻿using System.IO.Compression;
+﻿#if INCLUDE_TERRAIN_MODEL
+using System.IO.Compression;
 using OpenTK.Mathematics;
 using recreate_nrw.Util;
 
@@ -110,3 +111,4 @@ public class Heightmap
     /// <returns>The sub tile position.</returns>
     private static Vector2i GetSubTilePos(Vector2i pos) => pos.Modulo(Size);
 }
+#endif

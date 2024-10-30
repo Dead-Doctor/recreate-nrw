@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿// #define INCLUDE_TERRAIN_MODEL
+
+using System.Globalization;
 using System.Runtime.InteropServices;
 using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
@@ -17,15 +19,20 @@ public class Window : GameWindow
 {
     private bool _vsync = true;
 
+#if INCLUDE_TERRAIN_MODEL
     private readonly TerrainModel _terrainModel;
+#endif
 
     // private TestScene _scene = null!;
     private ImGuiController _controller = null!;
     private Camera _camera = null!;
     private Controls _controls = null!;
+#if INCLUDE_TERRAIN_MODEL
     private Shader _terrainModelShader = null!;
     private ShadedModel _shadedTerrainModel = null!;
     private bool _renderTerrainModel;
+    private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
+#endif
 
     private Terrain _terrain = null!;
     private Fern _fern = null!;
@@ -35,8 +42,9 @@ public class Window : GameWindow
 
     private Map _map = null!;
 
-    private readonly Vector3 _lightDir = new Vector3(1.0f, -1.0f, 1.0f).Normalized();
     public bool Debug;
+
+    private readonly Profiler _initializingTask;
 
     public Window() : base(
         GameWindowSettings.Default,
@@ -44,10 +52,17 @@ public class Window : GameWindow
             { Title = "Recreate NRW", Size = (960, 540), APIVersion = new Version(4, 6) }
     )
     {
+        _initializingTask = Profiler.Create("Initialize");
+        var constructorTask = _initializingTask.Start("Constructor");
         VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
+#if INCLUDE_TERRAIN_MODEL
+        var loadTerrainModelData = constructorTask.Start("Loading terrain model data");
         var heightmap = new Heightmap(new Vector2i(347, 5673));
         heightmap.LoadTile(new Vector2i(0, 0));
         _terrainModel = new TerrainModel(heightmap, new Vector2i(0, 0), 1000u);
+        loadTerrainModelData.Stop();
+#endif
+        constructorTask.Stop();
     }
 
     /// <summary>
@@ -57,7 +72,8 @@ public class Window : GameWindow
 
     protected override void OnLoad()
     {
-        base.OnLoad();
+        var loadingTask = _initializingTask.Start("Load");
+        loadingTask.Start("Base Load", _ => base.OnLoad());
 #if DEBUG
         GL.Enable(EnableCap.DebugOutput);
         GL.Enable(EnableCap.DebugOutputSynchronous);
@@ -68,34 +84,47 @@ public class Window : GameWindow
         Renderer.DepthTesting = true;
         Renderer.BackFaceCulling = true;
         Renderer.BlendingFunction(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-        _controller = new ImGuiController(ClientSize);
-        Resources.RegisterDisposable(_controller);
+        
+        var setupClasses = loadingTask.Start("Setup Classes");
+        setupClasses.Start("Setup ImGui", p => _controller = new ImGuiController(ClientSize, p));
+        setupClasses.Start("Setup Camera, Controls", _ =>
+        {
+            _camera = new Camera(Size, new Vector3(0.0f, 100.0f, 0.0f));
+            _controls = new Controls(this);
+        });
 
-        _camera = new Camera(Size, new Vector3(0.0f, 100.0f, 0.0f));
-        _controls = new Controls(this);
-
+#if INCLUDE_TERRAIN_MODEL
+        var setupTerrainModel = setupClasses.Start("Setup Terrain Model");
         _terrainModelShader = new Shader("terrainModel");
         _terrainModelShader.AddUniform<Matrix4>("modelViewMat");
         _terrainModelShader.AddUniform<Matrix4>("projectionMat");
         _terrainModelShader.AddUniform("lightDir", _lightDir);
-
-        _terrainModelShader.AddTexture("concreteTexture",
-            Texture.LoadImageFile("Resources/Concrete/Concrete042A_1K_Color.jpg"));
+        
+        var loadingTextures = setupTerrainModel.Start("Loading Textures");
+        _terrainModelShader.AddTexture("concreteTexture", Texture.LoadImageFile("Resources/Concrete/Concrete042A_1K_Color.jpg"));
         _terrainModelShader.AddTexture("dirtTexture", Texture.LoadImageFile("Resources/Dirt/Ground023_1K_Color.jpg"));
         _terrainModelShader.AddTexture("grassTexture", Texture.LoadImageFile("Resources/Grass/Grass001_1K_Color.jpg"));
-
+        loadingTextures.Stop();
+        
         _shadedTerrainModel = new ShadedModel(_terrainModel.Model, _terrainModelShader,
             BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
+        setupTerrainModel.Stop();
+#endif
 
-        _terrain = new Terrain();
-        _fern = new Fern();
-        _grass = new Grass(_terrain);
+        setupClasses.Start("Setup Ground", _ => _terrain = new Terrain());
+        setupClasses.Start("Setup Foliage", _ =>
+        {
+            _fern = new Fern();
+            _grass = new Grass(_terrain);
+        });
 
         _sky = new Sky();
-
         _map = new Map(_camera, _terrain);
+        setupClasses.Stop();
 
         // _scene = new TestScene(_camera);
+        loadingTask.Stop();
+        _initializingTask.Stop();
     }
 
     private int _frameCount;
@@ -129,6 +158,8 @@ public class Window : GameWindow
         Renderer.DepthTesting = true;
 
         // _scene.OnRenderFrame();
+
+#if INCLUDE_TERRAIN_MODEL
         if (_renderTerrainModel)
         {
             _terrainModelShader.SetUniform("modelViewMat", _camera.ViewMat);
@@ -137,22 +168,26 @@ public class Window : GameWindow
         }
         else
         {
-            if (Debug)
-            {
-                GL.Enable(EnableCap.PolygonOffsetFill);
-                GL.PolygonOffset(1, 1);
-            }
-            _terrain.Draw(_camera, _sky);
-            
-            if (Debug)
-            {
-                GL.Disable(EnableCap.PolygonOffsetFill);
-                
-                Renderer.PolygonMode = PolygonMode.Line;
-                _terrain.Draw(_camera, _sky, true);
-                Renderer.PolygonMode = PolygonMode.Fill;
-            }
+#endif
+        if (Debug)
+        {
+            GL.Enable(EnableCap.PolygonOffsetFill);
+            GL.PolygonOffset(1, 1);
         }
+
+        _terrain.Draw(_camera, _sky);
+
+        if (Debug)
+        {
+            GL.Disable(EnableCap.PolygonOffsetFill);
+
+            Renderer.PolygonMode = PolygonMode.Line;
+            _terrain.Draw(_camera, _sky, true);
+            Renderer.PolygonMode = PolygonMode.Fill;
+        }
+#if INCLUDE_TERRAIN_MODEL
+        }
+#endif
 
         _grass.Draw(_camera);
         // _fern.Draw();
@@ -178,14 +213,14 @@ public class Window : GameWindow
 
         var mapHeight = Math.Clamp(ImGui.GetWindowHeight() * 0.4f, 80f, 200f);
         _map.Window(new Vector2(0f, mapHeight));
-        
+
         ImGui.AlignTextToFramePadding();
         ImGui.Value("Fps", (float)_fps);
-        
+
         ImGui.SameLine();
         if (ImGui.Checkbox("VSync", ref _vsync))
             VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
-        
+
         var locateButtonSize = ImGui.GetFrameHeight();
         ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetStyle().WindowPadding.X - locateButtonSize);
         var disabled = _map.FollowPlayer;
@@ -218,14 +253,17 @@ public class Window : GameWindow
             _camera.Position = Coordinate.Epsg25832(new Vector2(347000, 5673000), _camera.Position.Y).World();
         ImGui.SameLine();
         if (ImGui.Button("Schloss Burg"))
-            _camera.Position = Coordinate.Epsg25832(new Vector2(370552.5815306349f, 5666744.753800459f), _camera.Position.Y).World();
+            _camera.Position = Coordinate
+                .Epsg25832(new Vector2(370552.5815306349f, 5666744.753800459f), _camera.Position.Y).World();
 
         ImGui.Value("Terrain Height", TerrainData.GetHeightAt(cameraPosition.TerrainTile()) ?? float.NaN);
-        
+
+#if INCLUDE_TERRAIN_MODEL
         if (ImGui.Checkbox("Render Terrain Model", ref _renderTerrainModel))
         {
             _camera.Position += (_renderTerrainModel ? -1.0f : 1.0f) * new Vector3(1000.0f, 0.0f, 1001.0f);
         }
+#endif
 
         ImGui.End();
     }
@@ -234,7 +272,7 @@ public class Window : GameWindow
     {
         base.OnResize(e);
         Renderer.Viewport = new Box2i(0, 0, e.Width, e.Height);
-    
+
         _controller.OnResize(e);
         _camera.Resize(e.Size);
     }

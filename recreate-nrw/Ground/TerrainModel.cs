@@ -1,4 +1,5 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿#if INCLUDE_TERRAIN_MODEL
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using recreate_nrw.Render;
 using Vector3 = OpenTK.Mathematics.Vector3;
@@ -94,3 +95,4 @@ public class TerrainModel
         return (uint) (index.Y * _size + index.X);
     }
 }
+#endif

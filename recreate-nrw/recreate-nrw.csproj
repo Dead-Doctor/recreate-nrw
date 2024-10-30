@@ -76,10 +76,4 @@
     <ItemGroup>
       <None Remove="Run\Data\**" />
     </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Run\Debug\" />
-    </ItemGroup>
-
-
 </Project>

@@ -12,11 +12,13 @@ namespace recreate_nrw.Util
 {
     public sealed class ImGuiController : IDisposable
     {
+        private volatile bool _ready = false;
+        
         private int _vertexArray;
         private int _vertexBuffer;
-        private int _vertexBufferSize = 0;
+        private int _vertexBufferSize;
         private int _indexBuffer;
-        private int _indexBufferSize = 0;
+        private int _indexBufferSize;
 
         private Texture _fontTexture = null!;
         private Shader _shader = null!;
@@ -37,8 +39,9 @@ namespace recreate_nrw.Util
             }
         }
 
-        public ImGuiController(Vector2i windowSize)
+        public ImGuiController(Vector2i windowSize, Profiler profiler)
         {
+            var configure = profiler.Start("Configure");
             var context = ImGui.CreateContext();
             ImGui.SetCurrentContext(context);
 
@@ -49,9 +52,14 @@ namespace recreate_nrw.Util
             io.BackendFlags |= ImGuiBackendFlags.HasSetMousePos;
             io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
             io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
-
+            configure.Stop();
+            var createDeviceResources = profiler.Start("Creating Device Resources");
             CreateDeviceResources();
-            CreateFontTexture();
+            createDeviceResources.Stop();
+            var createFontTexture = profiler.Start("Create Font Texture");
+            CreateFontTexture(createFontTexture);
+            createFontTexture.Stop();
+            Resources.RegisterDisposable(this);
         }
 
         private void CreateDeviceResources()
@@ -93,13 +101,17 @@ namespace recreate_nrw.Util
             GL.ObjectLabel(objLabelIdent, glObject, name.Length, name);
         }
 
-        private void CreateFontTexture()
+        private void CreateFontTexture(Profiler profiler)
         {
             var io = ImGui.GetIO();
+            
+            var getCopy = profiler.Start("Get, Copy");
             io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out var width, out var height, out var sizeOfPixel);
             var textureData = new byte[width * height * sizeOfPixel];
             Marshal.Copy(pixels, textureData, 0, textureData.Length);
+            getCopy.Stop();
 
+            var create = profiler.Start("Create");
             _fontTexture = Texture.Load("ImGui Text Atlas", () => (new TextureInfo2D(
                 SizedInternalFormat.Rgba8,
                 new Vector2i(width, height),
@@ -109,9 +121,13 @@ namespace recreate_nrw.Util
                 PixelFormat.Rgba,
                 PixelType.UnsignedByte
             )));
+            create.Stop();
 
+            var registerDelete = profiler.Start("Register, Delete");
             io.Fonts.SetTexID((IntPtr)_fontTexture.GetHandle());
             io.Fonts.ClearTexData();
+            registerDelete.Stop();
+            _ready = true;
         }
 
         private static void RegisterVertexAttribute(Shader shader, string name, int count, VertexAttribPointerType type,
