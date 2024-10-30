@@ -19,7 +19,7 @@ public class Terrain
     private int _biggestSquares;
     private int _chunks;
 
-    public const int TextureLODs = 4;
+    public const int TextureLODs = 3;
     private const int TexturesPerLOD = 4;
     private const float SwitchRegionSize = 0.375f;
 
@@ -27,7 +27,15 @@ public class Terrain
     private Model? _model;
     private ShadedModel? _shadedModel;
 
-    //TODO: information graph
+    public readonly Vector2i[] Center = new Vector2i[TextureLODs];
+    private readonly LoadedTile[] _loadedTiles = new LoadedTile[TextureLODs * TexturesPerLOD];
+
+    private readonly StaticTexture _tilesTexture = StaticTexture.CreateFrom(new TextureInfo2DArray(
+        SizedInternalFormat.R32f, new Vector2i(BaseTileSize), TexturesPerLOD * TextureLODs, TextureWrapMode.ClampToEdge,
+        false, false));
+
+    private readonly StaticTexture _tilesPosTexture =
+        StaticTexture.CreateFrom(new TextureInfo1D(SizedInternalFormat.Rg32f, TextureLODs * TexturesPerLOD));
 
     private int N
     {
@@ -54,15 +62,6 @@ public class Terrain
             _chunks = 4 * (1 + 3 * _LODs);
         }
     }
-
-    public readonly Vector2i[] Center = new Vector2i[TextureLODs];
-    private readonly LoadedTile[] _loadedTiles = new LoadedTile[TextureLODs * TexturesPerLOD];
-
-    private readonly StaticTexture _tilesTexture = StaticTexture.CreateFrom(new TextureInfo2DArray(null,
-        SizedInternalFormat.R32f,
-        new Vector2i(BaseTileSize), TexturesPerLOD * TextureLODs, TextureWrapMode.ClampToEdge, false, false));
-    private readonly StaticTexture _tilesPosTexture =
-        StaticTexture.CreateFrom(new TextureInfo1D(null, SizedInternalFormat.Rg32f, TextureLODs * TexturesPerLOD));
 
     public Terrain()
     {
@@ -241,14 +240,10 @@ public class Terrain
         ImGui.End();
     }
 
-    private struct LoadedTile
+    private class LoadedTile
     {
-        private Vector3i _pos = Vector3i.Zero;
-        private float[]? _buffer = null;
-
-        public LoadedTile()
-        {
-        }
+        private Vector3i? _pos;
+        private float[]? _buffer;
 
         public async void MoveTile(Vector3i pos)
         {
@@ -262,15 +257,11 @@ public class Terrain
         {
             if (_buffer is null) return;
             
-            tilesTexture.UploadImageData(new TextureInfo2DArray(
-                new TextureData2DArray(_buffer!, PixelFormat.Red, PixelType.Float, null, index, null, 1),
-                SizedInternalFormat.R32f,
-                new Vector2i(BaseTileSize), TexturesPerLOD * TextureLODs, TextureWrapMode.ClampToEdge, false, false));
-            
-            tilesPosTexture.UploadImageData(new TextureInfo1D(
-                new TextureData1D(new float[] { _pos.X, _pos.Y }, PixelFormat.Rg, PixelType.Float, index, 1),
-                SizedInternalFormat.Rg32f, TextureLODs * TexturesPerLOD));
-            
+            tilesTexture.UploadImageData(new TextureData2DArray(_buffer!, PixelFormat.Red, PixelType.Float, null, index,
+                null, 1));
+            tilesPosTexture.UploadImageData(new TextureData1D(new float[] { _pos!.Value.X, _pos!.Value.Y }, PixelFormat.Rg,
+                PixelType.Float, index, 1));
+
             _buffer = null;
         }
     }

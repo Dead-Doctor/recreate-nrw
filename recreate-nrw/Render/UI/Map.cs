@@ -12,7 +12,7 @@ public class Map
     private static readonly ShadedModel ShadedModel;
 
     private static readonly StaticTexture TerrainTextureCenters =
-        StaticTexture.CreateFrom(new TextureInfo1D(null, SizedInternalFormat.Rg32f, Terrain.TextureLODs));
+        StaticTexture.CreateFrom(new TextureInfo1D(SizedInternalFormat.Rg32f, Terrain.TextureLODs));
 
     private readonly Framebuffer _framebuffer = new(new Vector2i(200, 150), true, true, false);
     private readonly Camera _camera;
@@ -110,9 +110,7 @@ public class Map
                 centersData[i * 2 + 0] = _terrain.Center[i].X;
                 centersData[i * 2 + 1] = _terrain.Center[i].Y;
             }
-            TerrainTextureCenters.UploadImageData(new TextureInfo1D(
-                new TextureData1D(centersData, PixelFormat.Rg, PixelType.Float),
-                SizedInternalFormat.Rg32f, Terrain.TextureLODs));
+            TerrainTextureCenters.UploadImageData(new TextureData1D(centersData, PixelFormat.Rg, PixelType.Float));
             Shader.SetUniform("size", _size);
             ShadedModel.Draw();
         });

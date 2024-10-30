@@ -79,7 +79,10 @@ public static class TerrainData
         }
 
         AvailableDataTilesTexture = StaticTexture.CreateFrom(new TextureInfo1D(
-            new TextureData1D(data, PixelFormat.Rg, PixelType.Float), SizedInternalFormat.Rg32f, AvailableData.Count));
+            SizedInternalFormat.Rg32f, AvailableData.Count
+        ), new TextureData1D(
+            data, PixelFormat.Rg, PixelType.Float
+        ));
     }
 
     //TODO: might crash when called twice for same tile in quick succession for the first time
@@ -149,7 +152,7 @@ public static class TerrainData
         {
             var stepSize = 1 << pos.Z;
             var stepsPerTile = BaseTileSize / stepSize;
-            
+
             var tiles = new Task<float[]>[stepSize * stepSize];
             for (var y = 0; y < stepSize; y++)
             {
@@ -158,6 +161,7 @@ public static class TerrainData
                     tiles[y * stepSize + x] = GetTile(new Vector3i(pos.X + x, pos.Y + y, 0));
                 }
             }
+
             for (var yTile = 0; yTile < stepSize; yTile++)
             {
                 for (var xTile = 0; xTile < stepSize; xTile++)
@@ -170,7 +174,8 @@ public static class TerrainData
                         {
                             var x = xTile * stepsPerTile + xOffset;
                             var xWithin = xOffset * stepSize;
-                            tile[y * BaseTileSize + x] = tiles[yTile * stepSize + xTile].Result[yWithin * BaseTileSize + xWithin];
+                            tile[y * BaseTileSize + x] =
+                                tiles[yTile * stepSize + xTile].Result[yWithin * BaseTileSize + xWithin];
                         }
                     }
                 }
@@ -191,7 +196,7 @@ public static class TerrainData
     {
         //TODO: Not implemented yet!
         // _savedTiles.Add(pos);
-        
+
         /*// Export as grayscale heightmap
         var path = $"Debug/tile_{pos.Z}_{pos.X}_{pos.Y}.pgm";
         using var stream = File.OpenWrite(path);

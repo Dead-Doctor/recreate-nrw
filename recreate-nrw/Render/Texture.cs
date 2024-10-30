@@ -21,7 +21,7 @@ public abstract class Texture
     /// <param name="source">Lazy loaded texture source</param>
     /// <returns>The created or retrieved texture object</returns>
     [PublicAPI]
-    public static Texture Load<T>(string id, LazyTextureData<T> source) where T : ITextureData =>
+    public static Texture Load(string id, LazyTextureData source) =>
         Resources.GetCached(id, Source.Memory, _ => StaticTexture.CreateFrom(source()));
 
     /// <summary>
@@ -52,8 +52,10 @@ public abstract class Texture
                     _ => throw new ArgumentOutOfRangeException(image.Comp.ToString())
                 };
 
-                return new TextureInfo2D(new TextureData2D(image.Data, format, PixelType.UnsignedByte),
-                    SizedInternalFormat.Rgba8, new Vector2i(image.Width, image.Height), textureWrapMode, false, true);
+                return (
+                    new TextureInfo2D(SizedInternalFormat.Rgba8, new Vector2i(image.Width, image.Height), textureWrapMode, false, true),
+                    new TextureData2D(image.Data, format, PixelType.UnsignedByte)
+                );
             }));
 
     public void Activate(int i)
@@ -77,14 +79,19 @@ public abstract class Texture
 public class StaticTexture : Texture, IDisposable
 {
     public int Handle;
+    private ITextureInfo _info = null!;
 
     private StaticTexture()
     {
     }
+
+    public static StaticTexture CreateFrom((ITextureInfo, ITextureData) texture) =>
+        CreateFrom(texture.Item1, texture.Item2);
     
-    public static StaticTexture CreateFrom<T>(ITextureInfo<T> textureInfo) where T : ITextureData
+    public static StaticTexture CreateFrom(ITextureInfo textureInfo, ITextureData? textureData = null)
     {
         var t = new StaticTexture();
+        t._info = textureInfo;
         
         var target = textureInfo switch
         {
@@ -97,7 +104,7 @@ public class StaticTexture : Texture, IDisposable
 
         var levels = 1;
 
-        if (textureInfo is ITextureInfo2DBase<T> textureInfo2D)
+        if (textureInfo is ITextureInfo2DBase textureInfo2D)
         {
             levels += (int)Math.Floor(Math.Log2(Math.Max(textureInfo2D.Size.X, textureInfo2D.Size.Y)));
 
@@ -129,49 +136,48 @@ public class StaticTexture : Texture, IDisposable
                 break;
         }
 
-        if (textureInfo.Data is not null)
-            t.UploadImageData(textureInfo);
+        if (textureData is not null)
+            t.UploadImageData(textureData);
 
         Resources.RegisterDisposable(t);
         return t;
     }
 
-    public void UploadImageData<T>(ITextureInfo<T> textureData) where T : ITextureData
+    public void UploadImageData(ITextureData textureData)
     {
-        var data = textureData.Data ??
-                   throw new ArgumentException("Supplied texture data was null.", nameof(textureData));
-        dynamic dynamicData = data.Data;
+        dynamic data = textureData.Data ??
+                       throw new ArgumentException("Supplied texture data was null.", nameof(textureData));
         switch (textureData)
         {
-            case TextureInfo1D texture1D:
+            case TextureData1D texture1D:
             {
-                var offset = texture1D.Data?.Offset ?? 0;
-                var size = texture1D.Data?.Size ?? texture1D.Size - offset;
+                var offset = texture1D.Offset ?? 0;
+                var size = texture1D.Size ?? ((TextureInfo1D)_info).Size - offset;
                 GL.TextureSubImage1D(Handle, 0, offset, size,
-                    data.Format, data.Type, dynamicData);
+                    textureData.Format, textureData.Type, data);
                 break;
             }
-            case TextureInfo2D texture2D:
+            case TextureData2D texture2D:
             {
-                var offset = texture2D.Data?.Offset ?? Vector2i.Zero;
-                var size = texture2D.Data?.Size ?? texture2D.Size - offset;
+                var offset = texture2D.Offset ?? Vector2i.Zero;
+                var size = texture2D.Size ?? ((TextureInfo2D)_info).Size - offset;
                 GL.TextureSubImage2D(Handle, 0, offset.X, offset.Y, size.X, size.Y,
-                    data.Format, data.Type, dynamicData);
+                    textureData.Format, textureData.Type, data);
                 break;
             }
-            case TextureInfo2DArray texture2DArray:
+            case TextureData2DArray texture2DArray:
             {
-                var offset = texture2DArray.Data?.Offset ?? Vector2i.Zero;
-                var layerStart = texture2DArray.Data?.LayerStart ?? 0;
-                var size = texture2DArray.Data?.Size ?? texture2DArray.Size - offset;
-                var layerCount = texture2DArray.Data?.LayerCount ?? texture2DArray.LayerCount - layerStart;
+                var offset = texture2DArray.Offset ?? Vector2i.Zero;
+                var layerStart = texture2DArray.LayerStart ?? 0;
+                var size = texture2DArray.Size ?? ((TextureInfo2DArray)_info).Size - offset;
+                var layerCount = texture2DArray.LayerCount ?? ((TextureInfo2DArray)_info).LayerCount - layerStart;
                 GL.TextureSubImage3D(Handle, 0, offset.X, offset.Y, layerStart, size.X, size.Y, layerCount,
-                    data.Format, data.Type, dynamicData);
+                    textureData.Format, textureData.Type, data);
                 break;
             }
         }
         
-        if (textureData is ITextureInfo2DBase<T> { Mipmaps: true })
+        if (_info is ITextureInfo2DBase { Mipmaps: true })
             GenerateMipmap();
     }
 
@@ -201,20 +207,19 @@ public class StaticTexture : Texture, IDisposable
     }
 }
 
-public delegate ITextureInfo<T> LazyTextureData<out T>() where T : ITextureData;
+public delegate (ITextureInfo, ITextureData) LazyTextureData();
 
-public interface ITextureInfo<out T> where T : ITextureData
+public interface ITextureInfo
 {
-    T? Data { get; }
     SizedInternalFormat InternalFormat { get; }
 }
 
-public interface ITextureInfo1D : ITextureInfo<ITextureData1D>
+public interface ITextureInfo1D : ITextureInfo
 {
     int Size { get; }
 }
 
-public interface ITextureInfo2DBase<out T> : ITextureInfo<T> where T : ITextureData
+public interface ITextureInfo2DBase : ITextureInfo
 {
     Vector2i Size { get; }
     TextureWrapMode WrapMode { get; }
@@ -223,11 +228,11 @@ public interface ITextureInfo2DBase<out T> : ITextureInfo<T> where T : ITextureD
     bool Mipmaps { get; }
 }
 
-public interface ITextureInfo2D : ITextureInfo2DBase<ITextureData2D>
+public interface ITextureInfo2D : ITextureInfo2DBase
 {
 }
 
-public interface ITextureInfo2DArray : ITextureInfo2DBase<ITextureData2DArray>
+public interface ITextureInfo2DArray : ITextureInfo2DBase
 {
     int LayerCount { get; }
 }
@@ -262,12 +267,10 @@ public interface ITextureData2DArray : ITextureData2DBase
 }
 
 public readonly record struct TextureInfo1D(
-    ITextureData1D? Data,
     SizedInternalFormat InternalFormat,
     int Size) : ITextureInfo1D;
 
 public readonly record struct TextureInfo2D(
-    ITextureData2D? Data,
     SizedInternalFormat InternalFormat,
     Vector2i Size,
     TextureWrapMode WrapMode,
@@ -275,7 +278,6 @@ public readonly record struct TextureInfo2D(
     bool Mipmaps) : ITextureInfo2D;
 
 public readonly record struct TextureInfo2DArray(
-    ITextureData2DArray? Data,
     SizedInternalFormat InternalFormat,
     Vector2i Size,
     int LayerCount,
