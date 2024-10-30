@@ -12,13 +12,8 @@ uniform int textureBaseSize;
 uniform vec3 sunDir;
 uniform int debug;
 
-struct Tile
-{
-    vec2 pos;
-    sampler2D data;
-};
-
-uniform Tile tiles[TEXTURE_LODS][TEXTURES_PER_LOD];
+uniform vec2 tilePos[TEXTURE_LODS * TEXTURES_PER_LOD];
+uniform sampler2DArray tileData;
 
 // Expects decimals
 float getHeight(vec2 pos, vec2 dx, vec2 dy) {
@@ -28,15 +23,12 @@ float getHeight(vec2 pos, vec2 dx, vec2 dy) {
         int tileSize = textureBaseSize * stepSize;
         vec2 offsetInTile = mod(mod(pos, tileSize) + tileSize, tileSize);
         vec2 uv = offsetInTile / tileSize;
-        vec2 index = floor((floor(pos) - floor(offsetInTile)) / textureBaseSize);
-        float sample0 = textureGrad(tiles[lod][0].data, uv, dx, dy).r;
-        float sample1 = textureGrad(tiles[lod][1].data, uv, dx, dy).r;
-        float sample2 = textureGrad(tiles[lod][2].data, uv, dx, dy).r;
-        float sample3 = textureGrad(tiles[lod][3].data, uv, dx, dy).r;
-        height = tiles[lod][0].pos == index ? sample0 : height;
-        height = tiles[lod][1].pos == index ? sample1 : height;
-        height = tiles[lod][2].pos == index ? sample2 : height;
-        height = tiles[lod][3].pos == index ? sample3 : height;
+        vec2 currentTilePos = floor((floor(pos) - floor(offsetInTile)) / textureBaseSize);
+        for (int i = 0; i < TEXTURES_PER_LOD; i++) {
+            int index = lod * TEXTURES_PER_LOD + i;
+            float sampled = textureGrad(tileData, vec3(uv, index), dx, dy).r;
+            height = tilePos[index] == currentTilePos ? sampled : height;
+        }
     }
     return height;
 }
@@ -114,5 +106,5 @@ void main()
     float ambient = 0.3;
     float diffuse = 0.7 * max(dot(sunDir, normal), 0.0);
     FragColor = (ambient + diffuse) * vec4(1.0);
-    if (debug == 1) FragColor = vec4(1.0, tiles[0][0].pos, 0.0);
+    if (debug == 1) FragColor = vec4(1.0, 1.0, 1.0, 0.0);
 }

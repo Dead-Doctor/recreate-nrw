@@ -78,8 +78,8 @@ public static class TerrainData
             data[i * 2 + 1] = AvailableData[i].Y;
         }
 
-        AvailableDataTilesTexture = new StaticTexture(new TextureInfo1D(
-            new TextureData(data, PixelFormat.Rg, PixelType.Float), SizedInternalFormat.Rg32f, AvailableData.Count));
+        AvailableDataTilesTexture = StaticTexture.CreateFrom(new TextureInfo1D(
+            new TextureData1D(data, PixelFormat.Rg, PixelType.Float), SizedInternalFormat.Rg32f, AvailableData.Count));
     }
 
     //TODO: might crash when called twice for same tile in quick succession for the first time

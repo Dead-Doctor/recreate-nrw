@@ -101,7 +101,7 @@ namespace recreate_nrw.Util
             Marshal.Copy(pixels, textureData, 0, textureData.Length);
 
             _fontTexture = Texture.Load("ImGui Text Atlas", () => new TextureInfo2D(
-                new TextureData(textureData, PixelFormat.Rgba, PixelType.UnsignedByte),
+                new TextureData2D(textureData, PixelFormat.Rgba, PixelType.UnsignedByte),
                 SizedInternalFormat.Rgba8,
                 new Vector2i(width, height),
                 TextureWrapMode.Repeat, true, false

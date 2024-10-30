@@ -16,14 +16,8 @@ uniform int n;
 uniform int textureBaseSize;
 
 //TODO: Upsample heightmap using bicubic interpolation (decrease size of triangles)
-
-struct Tile
-{
-    vec2 pos;
-    sampler2D data;
-};
-
-uniform Tile tiles[TEXTURE_LODS][TEXTURES_PER_LOD];
+uniform vec2 tilePos[TEXTURE_LODS * TEXTURES_PER_LOD];
+uniform sampler2DArray tileData;
 
 
 float invert(float a)
@@ -59,15 +53,12 @@ float getHeight(vec2 pos) {
         int tileSize = textureBaseSize * stepSize;
         vec2 offsetInTile = mod(mod(pos, tileSize) + tileSize, tileSize);
         ivec2 uv = ivec2(round(offsetInTile / stepSize));
-        vec2 index = floor((pos - offsetInTile) / textureBaseSize);
-        float sample0 = texelFetch(tiles[lod][0].data, uv, 0).r;
-        float sample1 = texelFetch(tiles[lod][1].data, uv, 0).r;
-        float sample2 = texelFetch(tiles[lod][2].data, uv, 0).r;
-        float sample3 = texelFetch(tiles[lod][3].data, uv, 0).r;
-        height = tiles[lod][0].pos == index ? sample0 : height;
-        height = tiles[lod][1].pos == index ? sample1 : height;
-        height = tiles[lod][2].pos == index ? sample2 : height;
-        height = tiles[lod][3].pos == index ? sample3 : height;
+        vec2 currentTilePos = floor((pos - offsetInTile) / textureBaseSize);
+        for (int i = 0; i < TEXTURES_PER_LOD; i++) {
+            int index = lod * TEXTURES_PER_LOD + i;
+            float sampled = texelFetch(tileData, ivec3(uv, index), 0).r;
+            height = tilePos[index] == currentTilePos ? sampled : height;
+        }
     }
     return height;
 }
@@ -104,7 +95,8 @@ void main()
     relativPos += offsetCount * n * offsetDirection;
     // Shift to correct position within ring
     relativPos += scale * n * posOffsetDirection;
-    pos = modelPos + relativPos;
+    // floor to mitigate floating-point-precision errors
+    pos = floor(modelPos + relativPos + 1e-2);
     
     //Heights
     vec3 grid = vec3(scale, 0.0, scale);

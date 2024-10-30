@@ -10,7 +10,7 @@ public class Framebuffer : Texture, IDisposable
 
     private static StaticTexture CreateAttachment(TextureInfo2D data) =>
         Resources.GetCached($"framebufferAttachment{_framebufferAttachments++}", Source.Memory,
-            _ => new StaticTexture(data));
+            _ => StaticTexture.CreateFrom(data));
     
     private readonly int _handle;
     private StaticTexture? _texture;

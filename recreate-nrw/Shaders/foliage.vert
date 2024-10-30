@@ -18,13 +18,8 @@ uniform vec3 origin;
 uniform mat4 viewMat;
 uniform mat4 projectionMat;
 
-struct Tile
-{
-    vec2 pos;
-    sampler2D data;
-};
-
-uniform Tile tiles[TEXTURE_LODS][TEXTURES_PER_LOD];
+uniform vec2 tilePos[TEXTURE_LODS * TEXTURES_PER_LOD];
+uniform sampler2DArray tileData;
 
 // Expects decimals
 float getHeight(vec2 pos) {
@@ -34,15 +29,12 @@ float getHeight(vec2 pos) {
         int tileSize = textureBaseSize * stepSize;
         vec2 offsetInTile = mod(mod(pos, tileSize) + tileSize, tileSize);
         vec2 uv = offsetInTile / tileSize;
-        vec2 index = floor((floor(pos) - floor(offsetInTile)) / textureBaseSize);
-        float sample0 = texture(tiles[lod][0].data, uv).r;
-        float sample1 = texture(tiles[lod][1].data, uv).r;
-        float sample2 = texture(tiles[lod][2].data, uv).r;
-        float sample3 = texture(tiles[lod][3].data, uv).r;
-        height = tiles[lod][0].pos == index ? sample0 : height;
-        height = tiles[lod][1].pos == index ? sample1 : height;
-        height = tiles[lod][2].pos == index ? sample2 : height;
-        height = tiles[lod][3].pos == index ? sample3 : height;
+        vec2 currentTilePos = floor((floor(pos) - floor(offsetInTile)) / textureBaseSize);
+        for (int i = 0; i < TEXTURES_PER_LOD; i++) {
+            int index = lod * TEXTURES_PER_LOD + i;
+            float sampled = texture(tileData, vec3(uv, index)).r;
+            height = tilePos[index] == currentTilePos ? sampled : height;
+        }
     }
     return height;
 }
