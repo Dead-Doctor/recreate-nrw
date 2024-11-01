@@ -8,11 +8,11 @@ uniform int textureBaseSize;
 uniform int texturesPerLod;
 
 uniform int n;
-uniform float gridSize;
+uniform float gridGap;
 
 out vec2 uv;
 
-uniform vec3 origin;
+uniform vec3 cameraPos;
 uniform mat4 viewMat;
 uniform mat4 projectionMat;
 
@@ -120,14 +120,20 @@ void main()
 {
     uv = aUV;
     
+    float size = gridGap * n;
     float row = mod(gl_InstanceID, n);
     float column = floor(gl_InstanceID / n);
     
-    vec2 gridPos = vec2(column, row) - vec2(n / 2);
-    vec2 instancePos = origin.xz - gridSize * gridPos;
-
+    vec2 relativePos = vec2(column, row) / n;
+    
+    // relative calculation (grid size = 1)
+    vec2 relGridStart = cameraPos.xz / size - 0.5;
+    vec2 offset = mod(relGridStart, 1.0);
+    vec2 difference = mod(relativePos - offset, 1.0);
+    vec2 instancePos = (relGridStart + difference) * size;
+    
     vec3 surfaceNormal = getNormal(instancePos);
-
+    
     float rotation = rand(instancePos) * TWO_PI;
     
     // front    

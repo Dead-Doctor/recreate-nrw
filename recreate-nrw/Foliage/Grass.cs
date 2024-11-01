@@ -25,7 +25,7 @@ public class Grass
     private readonly Shader _shader;
     private readonly ShadedModel _shadedModel;
     private int _n = 256;
-    private float _gridSize = 0.5f;
+    private float _gridGap = 0.5f;
 
     public Grass(Terrain terrain)
     {
@@ -35,8 +35,8 @@ public class Grass
         
         _shader = new Shader("foliage");
         _shader.AddUniform("n", _n);
-        _shader.AddUniform("gridSize", _gridSize);
-        _shader.AddUniform<Vector3>("origin");
+        _shader.AddUniform("gridGap", _gridGap);
+        _shader.AddUniform<Vector3>("cameraPos");
         _shader.AddUniform<Matrix4>("viewMat");
         _shader.AddUniform<Matrix4>("projectionMat");
         _shader.AddTexture("foliageTexture", Texture.LoadImageFile("Resources/grass.png", TextureWrapMode.ClampToEdge));
@@ -47,9 +47,7 @@ public class Grass
 
     public void Draw(Camera camera)
     {
-        var snapOffset = (camera.Position.Modulo(_gridSize) + new Vector3(_gridSize)).Modulo(_gridSize);
-        var origin = camera.Position - snapOffset;
-        _shader.SetUniform("origin", origin);
+        _shader.SetUniform("cameraPos", camera.Position);
         _shader.SetUniform("viewMat", camera.ViewMat);
         _shader.SetUniform("projectionMat", camera.ProjectionMat);
 
@@ -64,8 +62,8 @@ public class Grass
         ImGui.Begin("Grass");
         if (ImGui.SliderInt("N", ref _n, 1, 1024))
             _shader.SetUniform("n", _n);
-        if (ImGui.SliderFloat("Grid Size", ref _gridSize, 0.1f, 2.0f))
-            _shader.SetUniform("gridSize", _gridSize);
+        if (ImGui.SliderFloat("Grid Size", ref _gridGap, 0.1f, 2.0f))
+            _shader.SetUniform("gridGap", _gridGap);
         ImGui.End();
     }
 }
