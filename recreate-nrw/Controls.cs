@@ -21,6 +21,8 @@ public class Controls
 
     private bool _paused = true;
     private bool _sprinting = true;
+    public static volatile bool CaptureFrame = false;
+    public static int CapturedFrames = 0;
 
     private readonly Func<KeyboardState, float> _forwardsAxis = Axis(Keys.E, Keys.D);
     private readonly Func<KeyboardState, float> _sidewardsAxis = Axis(Keys.F, Keys.S);
@@ -44,6 +46,7 @@ public class Controls
         
         if (input.IsKeyPressed(Keys.P)) _window.Debug ^= true;
         if (input.IsKeyPressed(Keys.B)) _sprinting ^= true;
+        if (input.IsKeyPressed(Keys.C)) CaptureFrame = true;
         var currentSpeed = _sprinting ? SprintingSpeed : Speed;
 
         var velocity = _forwardsAxis(input) * camera.Front + _sidewardsAxis(input) * camera.Right +

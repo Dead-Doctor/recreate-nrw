@@ -44,9 +44,9 @@ float xor(float a, float b)
 
 // Expects integers
 float getHeight(vec2 pos) {
-    float height = 0.0;
     int tileCount = textureSize(tilePos, 0);
     int lodCount = tileCount / texturesPerLod;
+    ivec3 samplePosition = ivec3(0);
     for (int lod = lodCount - 1; lod >= 0; lod--) {
         int stepSize = 1 << lod;
         int tileSize = textureBaseSize * stepSize;
@@ -55,11 +55,11 @@ float getHeight(vec2 pos) {
         vec2 currentTilePos = floor((pos - offsetInTile) / textureBaseSize);
         for (int i = 0; i < texturesPerLod; i++) {
             int index = lod * texturesPerLod + i;
-            float sampled = texelFetch(tileData, ivec3(uv, index), 0).r;
-            height = texelFetch(tilePos, index, 0).xy == currentTilePos ? sampled : height;
+            vec2 texturePositon = texelFetch(tilePos, index, 0).xy;
+            samplePosition = texturePositon == currentTilePos ? ivec3(uv, index) : samplePosition;
         }
     }
-    return height;
+    return texelFetch(tileData, samplePosition, 0).r;
 }
 
 void main()

@@ -15,9 +15,9 @@ uniform sampler1D tilePos;
 
 // Expects decimals
 float getHeight(vec2 pos, vec2 dx, vec2 dy) {
-    float height = 0.0;
     int tileCount = textureSize(tilePos, 0);
     int lodCount = tileCount / texturesPerLod;
+    vec3 samplePosition = vec3(0.0);
     for (int lod = lodCount - 1; lod >= 0; lod--) {
         int stepSize = 1 << lod;
         int tileSize = textureBaseSize * stepSize;
@@ -26,11 +26,11 @@ float getHeight(vec2 pos, vec2 dx, vec2 dy) {
         vec2 currentTilePos = floor((floor(pos) - floor(offsetInTile)) / textureBaseSize);
         for (int i = 0; i < texturesPerLod; i++) {
             int index = lod * texturesPerLod + i;
-            float sampled = textureGrad(tileData, vec3(uv, index), dx, dy).r;
-            height = texelFetch(tilePos, index, 0).xy == currentTilePos ? sampled : height;
+            vec2 texturePositon = texelFetch(tilePos, index, 0).xy;
+            samplePosition = texturePositon == currentTilePos ? vec3(uv, index) : samplePosition;
         }
     }
-    return height;
+    return textureGrad(tileData, samplePosition, dx, dy).r;
 }
 
 vec4 cubic(float v)
@@ -77,6 +77,7 @@ float getHeightBicubic(vec2 pos, vec2 dx, vec2 dy)
 
 vec3 getNormal(vec2 pos) {
     float offset = 0.5;
+    
     vec3 here = vec3(pos.x, 0.0, pos.y);
     vec3 left = vec3(pos.x - offset, 0.0, pos.y);
     vec3 top = vec3(pos.x, 0.0, pos.y - offset);
@@ -92,12 +93,7 @@ vec3 getNormal(vec2 pos) {
     right.y = getHeightBicubic(right.xz, dx, dy);
     bottom.y = getHeightBicubic(bottom.xz, dx, dy);
 
-    vec3 normalTopLeft = normalize(cross(here - top, here - left));
-    vec3 normalTopRight = normalize(cross(here - top, right - here));
-    vec3 normalBottomLeft = normalize(cross(bottom - here, here - left));
-    vec3 normalBottomRight = normalize(cross(bottom - here, right - here));
-
-    return normalize(normalTopLeft + normalTopRight + normalBottomLeft + normalBottomRight);
+    return normalize(vec3(left.y - right.y, offset * 2.0, top.y - bottom.y));
 }
 
 void main()

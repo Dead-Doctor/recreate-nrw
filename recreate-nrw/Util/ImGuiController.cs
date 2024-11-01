@@ -12,8 +12,6 @@ namespace recreate_nrw.Util
 {
     public sealed class ImGuiController : IDisposable
     {
-        private volatile bool _ready = false;
-        
         private int _vertexArray;
         private int _vertexBuffer;
         private int _vertexBufferSize;
@@ -127,7 +125,6 @@ namespace recreate_nrw.Util
             io.Fonts.SetTexID((IntPtr)_fontTexture.GetHandle());
             io.Fonts.ClearTexData();
             registerDelete.Stop();
-            _ready = true;
         }
 
         private static void RegisterVertexAttribute(Shader shader, string name, int count, VertexAttribPointerType type,

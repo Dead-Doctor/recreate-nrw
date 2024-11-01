@@ -145,20 +145,39 @@ public class Window : GameWindow
         _timeSinceLastFpsUpdate = 0.0;
     }
 
+    private static void Captured(Profiler? profiler, string name, Action<Profiler?> action)
+    {
+        var task = profiler?.Start(name);
+        action(task);
+        task?.Stop();
+    }
+
     //TODO: crashes when streamed on discord
     protected override void OnRenderFrame(FrameEventArgs e)
     {
-        base.OnRenderFrame(e);
+        Profiler? profiler = null;
+        if (Controls.CaptureFrame)
+        {
+            Controls.CaptureFrame = false;
+            profiler = Profiler.Create($"Render Frame #{Controls.CapturedFrames++}");
+        }
+        
+        Captured(profiler, "Base", _ => base.OnRenderFrame(e));
 
         Renderer.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-        //TODO: Render Skybox at the end with max. depth to utilize depth testing
-        Renderer.DepthTesting = false;
-        _sky.Draw(_camera);
-        Renderer.DepthTesting = true;
+        Captured(profiler, "Sky", _ =>
+        {
+            //TODO: Render Skybox at the end with max. depth to utilize depth testing
+            Renderer.DepthTesting = false;
+            _sky.Draw(_camera);
+            Renderer.DepthTesting = true;
+        });
 
         // _scene.OnRenderFrame();
 
+        Captured(profiler, "Terrain", _ =>
+        {
 #if INCLUDE_TERRAIN_MODEL
         if (_renderTerrainModel)
         {
@@ -169,41 +188,47 @@ public class Window : GameWindow
         else
         {
 #endif
-        if (Debug)
-        {
-            GL.Enable(EnableCap.PolygonOffsetFill);
-            GL.PolygonOffset(1, 1);
-        }
+            if (Debug)
+            {
+                GL.Enable(EnableCap.PolygonOffsetFill);
+                GL.PolygonOffset(1, 1);
+            }
 
-        _terrain.Draw(_camera, _sky);
+            _terrain.Draw(_camera, _sky);
 
-        if (Debug)
-        {
-            GL.Disable(EnableCap.PolygonOffsetFill);
+            if (Debug)
+            {
+                GL.Disable(EnableCap.PolygonOffsetFill);
 
-            Renderer.PolygonMode = PolygonMode.Line;
-            _terrain.Draw(_camera, _sky, true);
-            Renderer.PolygonMode = PolygonMode.Fill;
-        }
+                Renderer.PolygonMode = PolygonMode.Line;
+                _terrain.Draw(_camera, _sky, true);
+                Renderer.PolygonMode = PolygonMode.Fill;
+            }
 #if INCLUDE_TERRAIN_MODEL
         }
 #endif
-
-        _grass.Draw(_camera);
-        // _fern.Draw();
-
-        _controller.RenderFrame(this, (float)e.Time, () =>
-        {
-            ImGui.ShowDemoWindow();
-            _terrain.Window();
-            _grass.Window();
-            _sky.Window();
-            Profiler.Window();
-            InfoWindow();
         });
 
-        //GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
-        SwapBuffers();
+        Captured(profiler, "Foliage", _ =>
+        {
+            _grass.Draw(_camera);
+            // _fern.Draw();
+        });
+
+
+        Captured(profiler, "ImGui", task => _controller.RenderFrame(this, (float)e.Time, () =>
+        {
+            Captured(task, "Demo", _ => ImGui.ShowDemoWindow());
+            Captured(task, "Terrain", _ => _terrain.Window());
+            Captured(task, "Grass", _ => _grass.Window());
+            Captured(task, "Sky", _ => _sky.Window());
+            Captured(task, "Profiler", _ => Profiler.Window());
+            Captured(task, "Info", _ => InfoWindow());
+        }));
+
+        Captured(profiler, "Swap Buffers", _ => SwapBuffers());
+
+        profiler?.Stop();
     }
 
     private void InfoWindow()
