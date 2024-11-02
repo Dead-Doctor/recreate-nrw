@@ -27,8 +27,7 @@ const float stripeThickness = 5.0;
 const vec3 backgroundColor = vec3(0.15, 0.15, 0.15);
 const vec3 dataGridFillColor = vec3(0.25, 0.25, 0.25);
 const vec3 dataGridColor = vec3(0.4, 0.4, 0.4);
-const vec3 tileGridFillColor = vec3(0.3, 0.5, 0.8);
-const vec3 tileGridColor = vec3(0.3, 0.5, 0.8);
+const vec3 loadedTilesColor = vec3(0.3, 0.5, 0.8);
 const vec3 playerIndicatorColor = vec3(0.2, 0.3, 5.0);
 
 float calculatePlayerIndicator(vec2 worldPosition) {
@@ -54,8 +53,6 @@ void main() {
     
     vec2 terrainDataUv = mod(worldPosition, 1000);
     float dataGrid = min(terrainDataUv.x / dFdxFine(worldPosition.x), terrainDataUv.y / dFdyFine(worldPosition.y)) > 1.0 ? 0.0 : 1.0;
-    vec2 terrainTileUv = mod(worldPosition, baseTerrainTileSize);
-    float tileGrid = min(terrainTileUv.x / dFdxFine(worldPosition.x), terrainTileUv.y / dFdyFine(worldPosition.y)) > 1.0 ? 0.0 : 1.0;
     
     vec2 terrainDataPosition = (worldPosition - vec2(-346000, 5675000)) * vec2(1, -1);
     vec2 terrainDataTile = floor(terrainDataPosition / 1000.0);
@@ -74,15 +71,14 @@ void main() {
         vec2 index = floor(worldPositionFloored / tileSize);
         vec2 center = texelFetch(terrainTextureCenters, lod, 0).xy;
         float maxDistanceToCenter = (terrainTilesPerLod - 1.0) / 2.0;
-        activeTiles += abs((index.x + 0.5) - center.x) <= maxDistanceToCenter && abs((index.y + 0.5) - center.y) <= maxDistanceToCenter ? 1 : 0;
+        activeTiles += abs((index.x + 0.5) - center.x) <= maxDistanceToCenter && abs((index.y + 0.5) - center.y) <= maxDistanceToCenter ? 1.0 : 0.0;
     }
     float tileActive = activeTiles / terrainTextureLods * (int(floor((gl_FragCoord.x + gl_FragCoord.y) / stripeThickness)) % 2);
     
-    vec3 backgroundMix = backgroundColor;
-    vec3 dataGridFillMix = mix(backgroundMix, dataGridFillColor, dataTileAvailale);
-    vec3 dataGridMix = mix(dataGridFillMix, dataGridColor, dataGrid);
-    vec3 tileGridFillMix = mix(dataGridMix, tileGridFillColor, tileActive);
-    vec3 tileGridMix = mix(tileGridFillMix, tileGridColor, tileGrid);
-    vec3 indicatorMix = mix(tileGridMix, playerIndicatorColor, calculatePlayerIndicator(worldPosition));
-    FragColor = vec4(indicatorMix, 1.0);
+    vec3 color = backgroundColor;
+    color = mix(color, dataGridFillColor, dataTileAvailale);
+    color = mix(color, dataGridColor, dataGrid);
+    color = mix(color, loadedTilesColor, tileActive);
+    color = mix(color, playerIndicatorColor, calculatePlayerIndicator(worldPosition));
+    FragColor = vec4(color, 1.0);
 }

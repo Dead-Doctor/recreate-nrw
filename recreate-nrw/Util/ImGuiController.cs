@@ -233,7 +233,7 @@ namespace recreate_nrw.Util
                 for (var cmdI = 0; cmdI < drawList.CmdBuffer.Size; cmdI++)
                 {
                     var pCmd = drawList.CmdBuffer[cmdI];
-                    if (pCmd.UserCallback != IntPtr.Zero) throw new NotImplementedException();
+                    if (pCmd.UserCallback != IntPtr.Zero) throw new Exception("This feature is not supported by this ImGui controller implementation.");
                     GL.BindTextureUnit(0, (int)pCmd.TextureId);
 
                     // We do _windowHeight - (int)clip.W instead of (int)clip.Y because gl has flipped Y when it comes to these coordinates

@@ -49,6 +49,7 @@ public class Controls
         if (input.IsKeyPressed(Keys.C)) CaptureFrame = true;
         var currentSpeed = _sprinting ? SprintingSpeed : Speed;
 
+        //TODO: split into controls and controls implementation to allow hot-swapping between control styles (for example: creative camera, walking, plane?)
         var velocity = _forwardsAxis(input) * camera.Front + _sidewardsAxis(input) * camera.Right +
                        _upwardsAxis(input) * camera.Up;
         if (velocity != Vector3.Zero)

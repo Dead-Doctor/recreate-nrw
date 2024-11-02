@@ -1,9 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Compression;
-using System.Text;
-using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using recreate_nrw.Render;
 using recreate_nrw.Util;
 
 namespace recreate_nrw.Ground;
@@ -48,41 +45,43 @@ public static class TerrainData
     private const int BaseTileSize = Coordinate.TerrainTileSize;
     private const int TileArea = BaseTileSize * BaseTileSize;
 
+    private const string DataDirectory = "Data/";
+    private const string TilesDirectory = DataDirectory + "Tile/";
+
+    //TODO: add menu to download data (bulk download?)
     public static readonly List<Vector2i> AvailableData = new();
-    public static Texture AvailableDataTilesTexture { get; private set; }
 
     // tile: X: x, Y: z, Z: lod
     private static readonly List<Vector3i> SavedTiles = new();
     private static readonly ConcurrentDictionary<Vector3i, float[]> TileCache = new();
     private static readonly AsyncResourceLoader<Vector3i, float[]> TileLoader = new();
-    private static readonly AsyncResourceLoaderCached<Vector2i, float[]> DataLoaderCached = new();
+    private static readonly AsyncResourceLoaderCached<Vector2i, float[]?> DataLoaderCached = new();
 
     static TerrainData()
     {
-        // file: dgm1_32_{tile.X}_{tile.Y}_1_nw.xyz.gz
-        const string directory = "Data/Raw/";
-        const string prefix = directory + "dgm1";
-        foreach (var file in Directory.EnumerateFiles(directory))
+        // file: tile_{log2(BaseTileSize)}_{tile.X}_{tile.Y}_{tile.Z}.gz
+        var tilePrefix = $"{TilesDirectory}tile_{(int)Math.Log2(BaseTileSize)}_";
+        foreach (var file in Directory.EnumerateFiles(TilesDirectory))
         {
+            if (!file.StartsWith(tilePrefix)) continue;
             var parts = file.Split("_");
-            if (parts.Length != 6 || parts[0] != prefix) continue;
+            if (parts.Length != 5) continue;
+            var lastPart = parts[4].Split(".");
+            var position = new Vector3i(int.Parse(parts[2]), int.Parse(parts[3]), int.Parse(lastPart[0]));
+            SavedTiles.Add(position);
+        }
+
+        // file: dgm1_32_{tile.X}_{tile.Y}_1_nw.xyz.gz
+        const string rawTilesDir = DataDirectory + "Raw/";
+        const string rawPrefix = rawTilesDir + "dgm1";
+        foreach (var file in Directory.EnumerateFiles(rawTilesDir))
+        {
+            if (!file.StartsWith(rawPrefix)) continue;
+            var parts = file.Split("_");
+            if (parts.Length != 6) continue;
             var position = new Vector2i(int.Parse(parts[2]), int.Parse(parts[3]));
             AvailableData.Add(position);
-            Console.WriteLine($"[TerrainData]: Found data tile X: {position.X}, Y: {position.Y}");
         }
-
-        var data = new float[AvailableData.Count * 2];
-        for (var i = 0; i < AvailableData.Count; i++)
-        {
-            data[i * 2 + 0] = AvailableData[i].X;
-            data[i * 2 + 1] = AvailableData[i].Y;
-        }
-
-        AvailableDataTilesTexture = StaticTexture.CreateFrom(new TextureInfo1D(
-            SizedInternalFormat.Rg32f, AvailableData.Count
-        ), new TextureData1D(
-            data, PixelFormat.Rg, PixelType.Float
-        ));
     }
 
     //TODO: might crash when called twice for same tile in quick succession for the first time
@@ -103,8 +102,8 @@ public static class TerrainData
     {
         var createTileTask = Profiler.Create($"CreateTile: ({pos.X}, {pos.Y})");
 
-
         var tile = new float[TileArea];
+        var complete = true;
         if (pos.Z == 0)
         {
             // y is inverted for data tiles. Exclusive: yEnd, xEnd
@@ -116,16 +115,24 @@ public static class TerrainData
             if ((yEnd - 1).Modulo(DataSize) <= BaseTileSize.Modulo(DataSize)) dataTileRows++;
             if ((xEnd - 1).Modulo(DataSize) <= BaseTileSize.Modulo(DataSize)) dataTileColumns++;
 
+            // Start all data tile creation tasks
             var topLeft = (new Vector2(xStart, yStart) / DataSize).FloorToInt();
-            var dataTiles = new Task<float[]>[dataTileRows * dataTileColumns];
+            var dataTileTasks = new Task<float[]?>[dataTileRows * dataTileColumns];
             for (var y = 0; y < dataTileRows; y++)
             {
                 for (var x = 0; x < dataTileColumns; x++)
                 {
-                    dataTiles[y * dataTileColumns + x] = GetData(topLeft + new Vector2i(x, y), createTileTask);
+                    dataTileTasks[y * dataTileColumns + x] = GetData(topLeft + new Vector2i(x, y), createTileTask);
                 }
             }
-
+            // Wait for all tasks to finish
+            var dataTiles = new float[]?[dataTileTasks.Length];
+            for (var i = 0; i < dataTiles.Length; i++)
+            {
+                dataTiles[i] = dataTileTasks[i].Result;
+                if (dataTiles[i] == null) complete = false;
+            }
+            
             for (var yOffset = 0; yOffset < BaseTileSize; yOffset++)
             {
                 var y = yStart + yOffset;
@@ -142,8 +149,11 @@ public static class TerrainData
 
                     var dataIndex = dataRowStartIndex + xStartStrip.Modulo(DataSize);
                     var tileIndex = tileRowStartIndex + (xStartStrip - xStart);
-                    Array.Copy(dataTiles[dataTileIndex].Result, dataIndex, tile, tileIndex, xEndStrip - xStartStrip);
-
+                    
+                    var data = dataTiles[dataTileIndex];
+                    if (data != null)
+                        Array.Copy(data, dataIndex, tile, tileIndex, xEndStrip - xStartStrip);
+                    
                     xStartStrip = xEndStrip;
                 }
             }
@@ -166,6 +176,9 @@ public static class TerrainData
             {
                 for (var xTile = 0; xTile < stepSize; xTile++)
                 {
+                    var subTile = tiles[yTile * stepSize + xTile].Result;
+                    if (!SavedTiles.Contains(new Vector3i(pos.X + xTile, pos.Y + yTile, 0))) complete = false;
+                    
                     for (var yOffset = 0; yOffset < stepsPerTile; yOffset++)
                     {
                         var y = yTile * stepsPerTile + yOffset;
@@ -174,8 +187,7 @@ public static class TerrainData
                         {
                             var x = xTile * stepsPerTile + xOffset;
                             var xWithin = xOffset * stepSize;
-                            tile[y * BaseTileSize + x] =
-                                tiles[yTile * stepSize + xTile].Result[yWithin * BaseTileSize + xWithin];
+                            tile[y * BaseTileSize + x] = subTile[yWithin * BaseTileSize + xWithin];
                         }
                     }
                 }
@@ -183,22 +195,42 @@ public static class TerrainData
         }
 
         createTileTask.Stop();
-        SaveTile(pos, tile);
+        if (complete) SaveTile(pos, tile);
         return tile;
     }
 
     private static float[] LoadTile(Vector3i pos)
     {
-        throw new NotImplementedException("Not implemented yet!");
+        var file = $"{TilesDirectory}tile_{(int)Math.Log2(BaseTileSize)}_{pos.X}_{pos.Y}_{pos.Z}.gz";
+        using var stream = File.OpenRead(file);
+        using var decompressed = new GZipStream(stream, CompressionMode.Decompress);
+        using var reader = new StreamReader(decompressed);
+
+        var bytes = new byte[BaseTileSize * BaseTileSize * sizeof(float)];
+        var n = 0;
+        while ((n += decompressed.Read(bytes, n, bytes.Length - n)) < bytes.Length)
+        {
+        }
+
+        var tile = new float[BaseTileSize * BaseTileSize];
+        Buffer.BlockCopy(bytes, 0, tile, 0, bytes.Length);
+        return tile;
     }
 
     private static void SaveTile(Vector3i pos, float[] tile)
     {
-        //TODO: Not implemented yet!
-        // _savedTiles.Add(pos);
+        var bytes = new byte[BaseTileSize * BaseTileSize * sizeof(float)];
+        Buffer.BlockCopy(tile, 0, bytes, 0, bytes.Length);
+
+        var file = $"{TilesDirectory}tile_{(int)Math.Log2(BaseTileSize)}_{pos.X}_{pos.Y}_{pos.Z}.gz";
+        using var compressed = File.OpenWrite(file);
+        using var stream = new GZipStream(compressed, CompressionMode.Compress);
+        stream.Write(bytes);
+        SavedTiles.Add(pos);
+        //TODO: free memory of data tiles that have been completely converted to tiles
 
         /*// Export as grayscale heightmap
-        var path = $"Debug/tile_{pos.Z}_{pos.X}_{pos.Y}.pgm";
+        var path = $"Debug/tile_{(int)Math.Log2(BaseTileSize)}_{pos.X}_{pos.Y}_{pos.Z}.pgm";
         using var stream = File.OpenWrite(path);
         stream.Write(Encoding.ASCII.GetBytes($"P5 {BaseTileSize} {BaseTileSize} {byte.MaxValue}\n"));
         foreach (var height in tile)
@@ -207,8 +239,7 @@ public static class TerrainData
         }*/
     }
 
-    //TODO: delete after all tiles have been created using this datatile
-    private static async Task<float[]> GetData(Vector2i tile, Profiler task) =>
+    private static async Task<float[]?> GetData(Vector2i tile, Profiler task) =>
         await DataLoaderCached.Get(tile, i => LoadData(i, task));
 
     /// <summary>
@@ -218,14 +249,14 @@ public static class TerrainData
     /// 100 Lines at a time: 196ms
     /// Parse Int manually: 139ms
     /// </summary>
-    private static float[] LoadData(Vector2i tile, Profiler task)
+    private static float[]? LoadData(Vector2i tile, Profiler task)
     {
         var data = new float[DataArea];
         if (!AvailableData.Contains(tile))
         {
-            //TODO: Temp
+            //TODO: Auto-download tiles
             Console.WriteLine($"[WARNING]: Data tile was not found. {tile}");
-            return data;
+            return null;
         }
 
         var path = $"Data/Raw/dgm1_32_{tile.X}_{tile.Y}_1_nw.xyz.gz";
@@ -244,10 +275,13 @@ public static class TerrainData
         const int heightEndIndex = 27; // Exclusive
 
         //TODO: use some sort of partitioning or parallel processing
-        var buffer = new char[bufferSize];
+        var buffer = new byte[bufferSize];
         for (var i = 0; i < blocks; i++)
         {
-            reader.ReadBlock(buffer, 0, buffer.Length);
+            var n = 0;
+            while ((n += decompressed.Read(buffer, n, bufferSize - n)) < bufferSize)
+            {
+            }
 
             for (var j = 0; j < linesPerBlock; j++)
             {

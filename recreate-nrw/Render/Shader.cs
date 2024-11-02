@@ -16,6 +16,7 @@ public class Shader : IDisposable
 
     public Shader(string name)
     {
+        //TODO: allow including multiple files to avoid repeating code over and over again (example: terrain sampling)
         _name = name;
 
         var vertexShader = CreateAndCompileShader(name, ShaderType.VertexShader, $"Shaders/{name}.vert");

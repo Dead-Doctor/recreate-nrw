@@ -20,7 +20,7 @@ public class Terrain
     private int _chunks;
 
     public const int TextureLODs = 3;
-    public const int TextureLODSize = 2;
+    public const int TextureLODSize = 4;
     private const int TexturesPerLOD = TextureLODSize * TextureLODSize;
     private const int TextureCount = TextureLODs * TexturesPerLOD;
     private const float DelayedSwitchBufferRegion = 0.25f;
@@ -59,8 +59,8 @@ public class Terrain
             _renderDistance = Math.Max(value, 2 * N);
             _LODs = (int)Math.Ceiling(Math.Log2((float)_renderDistance / N));
             _biggestSquares = 1 << (_LODs - 1);
-            if (_biggestSquares >= N)
-                Console.WriteLine("[WARNING]: Step size is greater or equal to the distance of highest LOD.");
+            if (_biggestSquares >= N * 4)
+                Console.WriteLine($"[WARNING]: Step size is greater or equal to the size of highest LOD: {_biggestSquares} >= {N * 4}");
             _chunks = 4 * (1 + 3 * _LODs);
         }
     }
@@ -255,7 +255,11 @@ public class Terrain
             if (_pos == pos) return;
             _pos = pos;
             _buffer = null;
-            _buffer = await TerrainData.GetTile(pos);
+            
+            var tile = await TerrainData.GetTile(pos);
+            // Make sure tile has not already been moved again
+            if (_pos != pos) return;
+            _buffer = tile;
         }
 
         public void TryUpload(int index, StaticTexture tilesTexture, StaticTexture tilesPosTexture)

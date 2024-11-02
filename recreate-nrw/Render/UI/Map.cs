@@ -11,8 +11,14 @@ public class Map
     private static readonly Shader Shader = new("map");
     private static readonly ShadedModel ShadedModel;
 
-    private static readonly StaticTexture TerrainTextureCenters =
-        StaticTexture.CreateFrom(new TextureInfo1D(SizedInternalFormat.Rg32f, Terrain.TextureLODs));
+    private static readonly Texture AvailableDataTilesTexture = StaticTexture.CreateFrom(
+        new TextureInfo1D(SizedInternalFormat.Rg32f, TerrainData.AvailableData.Count),
+        new TextureData1D(TerrainData.AvailableData.Select(v => v.ToVector2()).ToArray(), PixelFormat.Rg,
+            PixelType.Float)
+    );
+    private static readonly StaticTexture TerrainTextureCenters = StaticTexture.CreateFrom(
+        new TextureInfo1D(SizedInternalFormat.Rg32f, Terrain.TextureLODs)
+    );
 
     private readonly Framebuffer _framebuffer = new(new Vector2i(200, 150), true, true, false);
     private readonly Camera _camera;
@@ -38,13 +44,20 @@ public class Map
         });
         model.AddVertexAttribute(new VertexAttribute("aPos", VertexAttribType.Float, 2));
 
+        // var data = new float[AvailableData.Count * 2];
+        // for (var i = 0; i < AvailableData.Count; i++)
+        // {
+        //     data[i * 2 + 0] = AvailableData[i].X;
+        //     data[i * 2 + 1] = AvailableData[i].Y;
+        // }
+
         Shader.AddUniform<float>("frameHeight");
         Shader.AddUniform<float>("aspectRatio");
         Shader.AddUniform<Vector2>("position");
         Shader.AddUniform<float>("size");
         Shader.AddUniform<Vector2>("playerPosition");
         Shader.AddUniform<float>("playerDirection");
-        Shader.AddTexture("dataTilesTexture", TerrainData.AvailableDataTilesTexture);
+        Shader.AddTexture("dataTilesTexture", AvailableDataTilesTexture);
         Shader.AddUniform<float>("baseTerrainTileSize", Coordinate.TerrainTileSize);
         Shader.AddTexture("terrainTextureCenters", TerrainTextureCenters);
         Shader.AddUniform("terrainTilesPerLod", Terrain.TextureLODSize);
@@ -111,6 +124,7 @@ public class Map
                 centersData[i * 2 + 0] = _terrain.Center[i].X;
                 centersData[i * 2 + 1] = _terrain.Center[i].Y;
             }
+
             TerrainTextureCenters.UploadImageData(new TextureData1D(centersData, PixelFormat.Rg, PixelType.Float));
             Shader.SetUniform("size", _size);
             ShadedModel.Draw();
