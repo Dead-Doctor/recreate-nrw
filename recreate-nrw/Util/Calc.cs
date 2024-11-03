@@ -71,4 +71,10 @@ public static class Calc
     [PublicAPI]
     public static Vector3 Modulo(this Vector3 value, float step) =>
         new(value.X.Modulo(step), value.Y.Modulo(step), value.Z.Modulo(step));
+    
+    [PublicAPI]
+    public static float EaseInOutSine(float v)
+    {
+        return -((float) Math.Cos(Math.PI * v) - 1.0f) / 2.0f;
+    }
 }

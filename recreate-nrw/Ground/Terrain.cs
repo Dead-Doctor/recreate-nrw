@@ -3,7 +3,6 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using recreate_nrw.Render;
 using recreate_nrw.Util;
-using Buffer = System.Buffer;
 
 namespace recreate_nrw.Ground;
 
@@ -11,6 +10,8 @@ public class Terrain
 {
     private const int BaseTileSize = Coordinate.TerrainTileSize;
 
+    private bool _debug = false;
+    
     private int _n = 32;
     private int _renderDistance;
 
@@ -147,7 +148,27 @@ public class Terrain
             new ShadedModel(_model, _shader, BufferUsageAccessFrequency.Static, BufferUsageAccessNature.Draw);
     }
 
-    public void Draw(Camera camera, Sky sky, bool debug = false)
+    public void Draw(Camera camera, Sky sky)
+    {
+        if (_debug)
+        {
+            GL.Enable(EnableCap.PolygonOffsetFill);
+            GL.PolygonOffset(1, 1);
+        }
+
+        Draw(camera, sky, false);
+
+        if (_debug)
+        {
+            GL.Disable(EnableCap.PolygonOffsetFill);
+
+            Renderer.PolygonMode = PolygonMode.Line;
+            Draw(camera, sky, true);
+            Renderer.PolygonMode = PolygonMode.Fill;
+        }
+    }
+
+    private void Draw(Camera camera, Sky sky, bool debug) 
     {
         var offset = new Vector2(_biggestSquares / 2.0f) - camera.Position.Xz.Modulo(_biggestSquares);
         var eye = new Vector3(-offset.X, camera.Position.Y, -offset.Y);
@@ -205,9 +226,11 @@ public class Terrain
         tile.MoveTile(new Vector3i(tileSpacePos * stepSize, lod));
     }
 
-    public void Window()
+    public void Window(Camera camera)
     {
         ImGui.Begin("Terrain");
+        
+        ImGui.Value("Current Height", TerrainData.GetHeightAt(camera.Position.Xz) ?? float.NaN);
 
         const int bytesPerTexture = BaseTileSize * BaseTileSize * sizeof(float);
         const int totalTextureSize = TextureCount * bytesPerTexture;
@@ -221,7 +244,7 @@ public class Terrain
             $"Texture coverage distance (worse/best): ({(worstDistance * biggestLodSize).FormatDistance()}/{(bestDistance * biggestLodSize).FormatDistance()})");
 
         ImGui.Separator();
-
+        
         ImGui.PushItemWidth(100.0f);
         var cachedRenderDistance = RenderDistance;
         if (ImGui.InputInt("Render Distance", ref cachedRenderDistance, 256, 1024,
@@ -242,6 +265,8 @@ public class Terrain
         ImGui.Text(
             $"Total Triangles: {triangleCount.FormatCount()}/{naiveTriangleCount.FormatCount()} ({(int)((float)triangleCount / naiveTriangleCount * 100.0f)}%%)");
 
+        ImGui.Checkbox("Debug", ref _debug);
+        
         ImGui.End();
     }
 

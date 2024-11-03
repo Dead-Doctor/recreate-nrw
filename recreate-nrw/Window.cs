@@ -7,6 +7,8 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
+using recreate_nrw.Controls;
+using recreate_nrw.Controls.Controller;
 using recreate_nrw.Ground;
 using recreate_nrw.Foliage;
 using recreate_nrw.Render;
@@ -19,15 +21,14 @@ public class Window : GameWindow
 {
     private bool _vsync = true;
 
-#if INCLUDE_TERRAIN_MODEL
-    private readonly TerrainModel _terrainModel;
-#endif
-
     // private TestScene _scene = null!;
     private ImGuiController _controller = null!;
-    private Camera _camera = null!;
-    private Controls _controls = null!;
+    public readonly Camera Camera = new();
+    private Controls.Controls _controls = null!;
+    private readonly IController[] _controllers = { new Creative() };
+    private int _currentController;
 #if INCLUDE_TERRAIN_MODEL
+    private readonly TerrainModel _terrainModel;
     private Shader _terrainModelShader = null!;
     private ShadedModel _shadedTerrainModel = null!;
     private bool _renderTerrainModel;
@@ -35,14 +36,12 @@ public class Window : GameWindow
 #endif
 
     private Terrain _terrain = null!;
-    private Fern _fern = null!;
+    private readonly Fern? _fern = null!;
     private Grass _grass = null!;
 
     private Sky _sky = null!;
 
     private Map _map = null!;
-
-    public bool Debug;
 
     private readonly Profiler _initializingTask;
 
@@ -84,13 +83,13 @@ public class Window : GameWindow
         Renderer.DepthTesting = true;
         Renderer.BackFaceCulling = true;
         Renderer.BlendingFunction(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-        
+
         var setupClasses = loadingTask.Start("Setup Classes");
         setupClasses.Start("Setup ImGui", p => _controller = new ImGuiController(ClientSize, p));
         setupClasses.Start("Setup Camera, Controls", _ =>
         {
-            _camera = new Camera(Size, new Vector3(0.0f, 100.0f, 0.0f));
-            _controls = new Controls(this);
+            Camera.Init(ClientSize);
+            _controls = new Controls.Controls(this, _controllers[_currentController]);
         });
 
 #if INCLUDE_TERRAIN_MODEL
@@ -114,12 +113,12 @@ public class Window : GameWindow
         setupClasses.Start("Setup Ground", _ => _terrain = new Terrain());
         setupClasses.Start("Setup Foliage", _ =>
         {
-            _fern = new Fern();
+            // _fern = new Fern();
             _grass = new Grass(_terrain);
         });
 
         _sky = new Sky();
-        _map = new Map(_camera, _terrain);
+        _map = new Map(Camera, _terrain);
         setupClasses.Stop();
 
         // _scene = new TestScene(_camera);
@@ -134,8 +133,8 @@ public class Window : GameWindow
     protected override void OnUpdateFrame(FrameEventArgs e)
     {
         base.OnUpdateFrame(e);
-        _controls.Update(e.Time, _camera);
-        _terrain.Update(_camera);
+        _controls.Update(e.Time);
+        _terrain.Update(Camera);
 
         _frameCount++;
         _timeSinceLastFpsUpdate += e.Time;
@@ -152,16 +151,19 @@ public class Window : GameWindow
         task?.Stop();
     }
 
+    private static volatile bool _captureFrame;
+    private static int _capturedFrames;
+
     //TODO: crashes when streamed on discord
     protected override void OnRenderFrame(FrameEventArgs e)
     {
         Profiler? profiler = null;
-        if (Controls.CaptureFrame)
+        if (_captureFrame)
         {
-            Controls.CaptureFrame = false;
-            profiler = Profiler.Create($"Render Frame #{Controls.CapturedFrames++}");
+            _captureFrame = false;
+            profiler = Profiler.Create($"Render Frame #{_capturedFrames++}");
         }
-        
+
         Captured(profiler, "Base", _ => base.OnRenderFrame(e));
 
         Renderer.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
@@ -170,7 +172,7 @@ public class Window : GameWindow
         {
             //TODO: Render Skybox at the end with max. depth to utilize depth testing
             Renderer.DepthTesting = false;
-            _sky.Draw(_camera);
+            _sky.Draw(Camera);
             Renderer.DepthTesting = true;
         });
 
@@ -188,22 +190,7 @@ public class Window : GameWindow
         else
         {
 #endif
-            if (Debug)
-            {
-                GL.Enable(EnableCap.PolygonOffsetFill);
-                GL.PolygonOffset(1, 1);
-            }
-
-            _terrain.Draw(_camera, _sky);
-
-            if (Debug)
-            {
-                GL.Disable(EnableCap.PolygonOffsetFill);
-
-                Renderer.PolygonMode = PolygonMode.Line;
-                _terrain.Draw(_camera, _sky, true);
-                Renderer.PolygonMode = PolygonMode.Fill;
-            }
+            _terrain.Draw(Camera, _sky);
 #if INCLUDE_TERRAIN_MODEL
         }
 #endif
@@ -211,15 +198,15 @@ public class Window : GameWindow
 
         Captured(profiler, "Foliage", _ =>
         {
-            _grass.Draw(_camera);
-            // _fern.Draw();
+            _grass.Draw(Camera);
+            _fern?.Draw();
         });
 
 
         Captured(profiler, "ImGui", task => _controller.RenderFrame(this, (float)e.Time, () =>
         {
             Captured(task, "Demo", _ => ImGui.ShowDemoWindow());
-            Captured(task, "Terrain", _ => _terrain.Window());
+            Captured(task, "Terrain", _ => _terrain.Window(Camera));
             Captured(task, "Grass", _ => _grass.Window());
             Captured(task, "Sky", _ => _sky.Window());
             Captured(task, "Profiler", _ => Profiler.Window());
@@ -235,16 +222,30 @@ public class Window : GameWindow
     {
         var windowFlags = _map.Hovered ? ImGuiWindowFlags.NoScrollWithMouse : ImGuiWindowFlags.None;
         ImGui.Begin("Info", windowFlags);
-
-        var mapHeight = Math.Clamp(ImGui.GetWindowHeight() * 0.4f, 80f, 200f);
-        _map.Window(new Vector2(0f, mapHeight));
-
+        
         ImGui.AlignTextToFramePadding();
         ImGui.Value("Fps", (float)_fps);
 
         ImGui.SameLine();
         if (ImGui.Checkbox("VSync", ref _vsync))
             VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
+
+        ImGui.SameLine();
+        if (ImGui.Button("Capture Frame")) _captureFrame = true;
+        
+        ImGui.Separator();
+        
+        var mapHeight = Math.Clamp(ImGui.GetWindowHeight() * 0.4f, 80f, 200f);
+        _map.Window(new Vector2(0f, mapHeight));
+        
+        var latLon = Coordinate.World(Camera.Position).Wgs84();
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text($"{latLon.X:0.000}°N {latLon.Y:0.000}°E");
+        
+        ImGui.SameLine();
+        if (ImGui.Button("Copy"))
+            ClipboardString =
+                $"{latLon.X.ToString(CultureInfo.InvariantCulture)}, {latLon.Y.ToString(CultureInfo.InvariantCulture)}";
 
         var locateButtonSize = ImGui.GetFrameHeight();
         ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetStyle().WindowPadding.X - locateButtonSize);
@@ -254,34 +255,14 @@ public class Window : GameWindow
             _map.FollowPlayer = true;
         if (disabled) ImGui.EndDisabled();
 
-        if (ImGuiExtension.Vector3("Position", _camera.Position, out var newPosition))
-            _camera.Position = newPosition;
+        ImGui.Separator();
 
-        var cameraPosition = Coordinate.World(_camera.Position);
-        var terrainData = cameraPosition.Epsg25832();
-        if (ImGuiExtension.Vector2("EPSG:25832", terrainData, out var newCoordinates))
-            _camera.Position = Coordinate.Epsg25832(newCoordinates, _camera.Position.Y).World();
+        if (ImGui.Combo("Controller", ref _currentController, "Creative"))
+        {
+            _controls.SwitchController(_controllers[_currentController]);
+        }
 
-        var dataTile = cameraPosition.TerrainDataIndex();
-        if (ImGuiExtension.Vector2("Data Tile", dataTile, out var newDataTile))
-            _camera.Position = Coordinate.TerrainDataIndex(newDataTile.FloorToInt()).World(_camera.Position.Y);
-
-        var latLon = cameraPosition.Wgs84();
-        if (ImGuiExtension.Vector2("WGS 84", latLon, out var newLatLon))
-            _camera.Position = Coordinate.Wgs84(newLatLon, _camera.Position.Y).World();
-
-        if (ImGui.Button("Copy Location"))
-            ClipboardString =
-                $"{latLon.X.ToString(CultureInfo.InvariantCulture)}, {latLon.Y.ToString(CultureInfo.InvariantCulture)}";
-
-        if (ImGui.Button("Home Sweet Home!"))
-            _camera.Position = Coordinate.Epsg25832(new Vector2(347000, 5673000), _camera.Position.Y).World();
-        ImGui.SameLine();
-        if (ImGui.Button("Schloss Burg"))
-            _camera.Position = Coordinate
-                .Epsg25832(new Vector2(370552.5815306349f, 5666744.753800459f), _camera.Position.Y).World();
-
-        ImGui.Value("Terrain Height", TerrainData.GetHeightAt(cameraPosition.TerrainTile()) ?? float.NaN);
+        _controls.Window();
 
 #if INCLUDE_TERRAIN_MODEL
         if (ImGui.Checkbox("Render Terrain Model", ref _renderTerrainModel))
@@ -299,7 +280,7 @@ public class Window : GameWindow
         Renderer.Viewport = new Box2i(0, 0, e.Width, e.Height);
 
         _controller.OnResize(e);
-        _camera.Resize(e.Size);
+        Camera.Resize(e.Size);
     }
 
     protected override void OnFocusedChanged(FocusedChangedEventArgs e)

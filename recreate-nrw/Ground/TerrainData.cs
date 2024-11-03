@@ -314,4 +314,20 @@ public static class TerrainData
         var offset = coordinate.TerrainTile().Modulo(BaseTileSize);
         return tile[offset.Y * BaseTileSize + offset.X];
     }
+
+    public static float? GetHeightAt(Vector2 pos)
+    {
+        var floored = pos.FloorToInt();
+        var fraction = pos.Modulo(1f);
+        
+        var topLeft = GetHeightAt(floored);
+        var topRight = GetHeightAt(floored + new Vector2i(1, 0));
+        var bottomLeft = GetHeightAt(floored + new Vector2i(0, 1));
+        var bottomRight = GetHeightAt(floored + new Vector2i(1, 1));
+        
+        var top = topLeft * (1f - fraction.X) + topRight * fraction.X;
+        var bottom = bottomLeft * (1f - fraction.X) + bottomRight * fraction.X;
+
+        return top * (1f - fraction.Y) + bottom * fraction.Y;
+    }
 }

@@ -22,8 +22,8 @@ public class Camera
     public Vector3 Right;
     private float _pitch;
     private float _fov;
-    private readonly float _depthNear;
-    private readonly float _depthFar;
+    private float _depthNear;
+    private float _depthFar;
     private float _aspect;
 
     public Matrix4 ViewMat { private set; get; }
@@ -38,12 +38,11 @@ public class Camera
         }
     }
 
-    public Camera(Vector2i size, Vector3 position, float yaw = 0.0f, float pitch = 0.0f, float fov = MathHelper.PiOver2,
-        float depthNear = 0.1f, float depthFar = 1048576.0f)
+    public void Init(Vector2i size, float fov = MathHelper.PiOver2, float depthNear = 0.1f, float depthFar = 1048576.0f)
     {
         _aspect = size.X / (float) size.Y;
-        _position = position;
-        SetEuler(yaw, pitch);
+        _position = Vector3.Zero;
+        SetEuler(0.0f, 0.0f);
         _fov = fov;
         _depthNear = depthNear;
         _depthFar = depthFar;

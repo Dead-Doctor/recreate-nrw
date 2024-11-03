@@ -78,7 +78,7 @@ public class Map
     private const float ZoomMax = 2f;
     private const float ZoomEpsilon = 0.001f;
     private float _zoom;
-    private float _targetZoom;
+    private float _targetZoom = -2f;
 
     private float TargetZoom
     {
