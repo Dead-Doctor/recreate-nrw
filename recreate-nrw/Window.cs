@@ -25,7 +25,8 @@ public class Window : GameWindow
     private ImGuiController _controller = null!;
     public readonly Camera Camera = new();
     private Controls.Controls _controls = null!;
-    private readonly IController[] _controllers = { new Creative() };
+    private readonly IController[] _controllers = { new Creative(), new Walking() };
+    private readonly string _controllersComboOptions;
     private int _currentController;
 #if INCLUDE_TERRAIN_MODEL
     private readonly TerrainModel _terrainModel;
@@ -44,7 +45,7 @@ public class Window : GameWindow
     private Map _map = null!;
 
     private readonly Profiler _initializingTask;
-
+    
     public Window() : base(
         GameWindowSettings.Default,
         new NativeWindowSettings
@@ -54,6 +55,7 @@ public class Window : GameWindow
         _initializingTask = Profiler.Create("Initialize");
         var constructorTask = _initializingTask.Start("Constructor");
         VSync = _vsync ? VSyncMode.On : VSyncMode.Off;
+        _controllersComboOptions = string.Join("\0", _controllers.Select(c => c.GetType().Name));
 #if INCLUDE_TERRAIN_MODEL
         var loadTerrainModelData = constructorTask.Start("Loading terrain model data");
         var heightmap = new Heightmap(new Vector2i(347, 5673));
@@ -217,7 +219,7 @@ public class Window : GameWindow
 
         profiler?.Stop();
     }
-
+    
     private void InfoWindow()
     {
         var windowFlags = _map.Hovered ? ImGuiWindowFlags.NoScrollWithMouse : ImGuiWindowFlags.None;
@@ -257,7 +259,7 @@ public class Window : GameWindow
 
         ImGui.Separator();
 
-        if (ImGui.Combo("Controller", ref _currentController, "Creative"))
+        if (ImGui.Combo("Controller", ref _currentController, _controllersComboOptions))
         {
             _controls.SwitchController(_controllers[_currentController]);
         }
