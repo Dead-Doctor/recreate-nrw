@@ -4,6 +4,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using recreate_nrw.Ground;
 using recreate_nrw.Render;
+using recreate_nrw.Util;
 
 namespace recreate_nrw.Controls.Controller;
 
@@ -29,6 +30,10 @@ public class Walking : IController
     private static readonly Func<KeyboardState, float> UpwardsAxis = Controls.Axis(Keys.Space, Keys.A);
     
     private Camera _camera = null!;
+    
+    private float _yaw;
+    private float _pitch;
+    
     private Vector3 _position;
     private Vector3 _velocity;
     
@@ -53,7 +58,14 @@ public class Walking : IController
     public void Update(KeyboardState keyboard, MouseState mouse, double deltaTime /* s */)
     {
         var turn = mouse.Delta * Sensitivity;
-        _camera.Turn(turn.X, -turn.Y);
+        _yaw += turn.X;
+        _pitch += turn.Y;
+        
+        _yaw = _yaw.Modulo(MathHelper.TwoPi);
+        const float epsilon = 1e-3f;
+        const float limit = MathHelper.PiOver2 - epsilon;
+        _pitch = Math.Clamp(_pitch, -limit, limit);
+        _camera.Rotation = Quaternion.FromEulerAngles(_pitch, _yaw, 0f);
         
         var heightAt = TerrainData.GetHeightAt(_position.Xz);
         if (heightAt == null) return;
@@ -67,9 +79,12 @@ public class Walking : IController
             _position.Y += -distanceToGround;
             if (_velocity.Y <= 0) _velocity.Y = 0;
             if (UpwardsAxis(keyboard) >= 1f) _velocity.Y = JumpVelocity;
-
-            var cameraHorizontalFront = Vector3.Cross(_camera.Up, _camera.Right);
-            var moveDirection = ForwardsAxis(keyboard) * cameraHorizontalFront.Xz + SidewardsAxis(keyboard) * _camera.Right.Xz;
+            
+            var upwards = Vector3.UnitY;
+            var sidewards = Vector3.Cross(_camera.Front, upwards).Normalized();
+            var forwards = Vector3.Cross(upwards, sidewards).Normalized();
+            
+            var moveDirection = ForwardsAxis(keyboard) * forwards.Xz + SidewardsAxis(keyboard) * sidewards.Xz;
             if (moveDirection.LengthSquared > 1e-3f)
             {
                 acceleration.Xz += moveDirection.Normalized() * WalkingAcceleration;

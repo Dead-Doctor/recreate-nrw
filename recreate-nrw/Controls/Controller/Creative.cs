@@ -15,9 +15,12 @@ public class Creative : IController
     private const float ZoomFactor = 1f / 3f;
     private const float ZoomSpeed = 0.1f;
     private const float Fov = MathHelper.PiOver2;
-
+    
     private bool _sprinting = true;
     private float _zoom;
+    
+    private float _yaw;
+    private float _pitch;
     
     private readonly Func<KeyboardState, float> _forwardsAxis = Controls.Axis(Keys.E, Keys.D);
     private readonly Func<KeyboardState, float> _sidewardsAxis = Controls.Axis(Keys.F, Keys.S);
@@ -28,7 +31,9 @@ public class Creative : IController
     public void Activate(Camera camera)
     {
         _camera = camera;
-        if (_camera.Position == Vector3.Zero) _camera.Position = new Vector3(0f, 100f, 0f);
+        if (_camera.Position != Vector3.Zero) return;
+        _camera.Position = new Vector3(0f, 100f, 0f);
+        _camera.Rotation = Quaternion.FromEulerAngles(0f, 0f, 0f);
     }
 
     public void Update(KeyboardState keyboard, MouseState mouse, double deltaTime)
@@ -36,10 +41,14 @@ public class Creative : IController
         if (keyboard.IsKeyPressed(Keys.B)) _sprinting ^= true;
         var currentSpeed = _sprinting ? SprintingSpeed : Speed;
 
-        var velocity = _forwardsAxis(keyboard) * _camera.Front + _sidewardsAxis(keyboard) * _camera.Right +
-                       _upwardsAxis(keyboard) * _camera.Up;
-        if (velocity != Vector3.Zero)
-            _camera.Move(velocity.Normalized() * currentSpeed * (float) deltaTime);
+        var upwards = Vector3.UnitY;
+        var sidewards = Vector3.Cross(_camera.Front, upwards).Normalized();
+        var forwards = Vector3.Cross(upwards, sidewards).Normalized();
+        
+        var velocity = _forwardsAxis(keyboard) * forwards + _sidewardsAxis(keyboard) * sidewards +
+                       _upwardsAxis(keyboard) * upwards;
+        
+        if (velocity != Vector3.Zero) _camera.Position += velocity.Normalized() * currentSpeed * (float) deltaTime;
 
         var zoomChange = (float) deltaTime / ZoomSpeed;
         if (!keyboard.IsKeyDown(Keys.V)) zoomChange *= -1.0f;
@@ -53,11 +62,20 @@ public class Creative : IController
         var turnDistance = Sensitivity * zoomFactorInterpolated;
 
         var turn = mouse.Delta * turnDistance;
-        _camera.Turn(turn.X, -turn.Y);
+        _yaw += turn.X;
+        _pitch += turn.Y;
+        
+        _yaw = _yaw.Modulo(MathHelper.TwoPi);
+        const float epsilon = 1e-3f;
+        const float limit = MathHelper.PiOver2 - epsilon;
+        _pitch = Math.Clamp(_pitch, -limit, limit);
+        _camera.Rotation = Quaternion.FromEulerAngles(_pitch, _yaw, 0f);
     }
 
     public void InfoWindow()
     {
+        ImGuiExtension.Vector3("Front", _camera.Front, out _);
+        
         if (ImGuiExtension.Vector3("Position", _camera.Position, out var newPosition))
             _camera.Position = newPosition;
 

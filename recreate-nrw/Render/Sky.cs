@@ -75,7 +75,7 @@ public class Sky
         SunDirection = CalculateSunDirection(now.Year, now.Month, now.Day, gmt,
             here.X, here.Y);
 
-        var viewMat = Matrix4.LookAt(Vector3.Zero, camera.Front, camera.Up);
+        var viewMat = camera.CalculateViewMatrixAt(Vector3.Zero);
         _shader.SetUniform("viewMat", viewMat);
         _shader.SetUniform("projectionMat", camera.ProjectionMat);
         _shader.SetUniform("sunDir", SunDirection);

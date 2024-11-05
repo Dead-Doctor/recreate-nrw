@@ -121,7 +121,7 @@ public class TestScene
         for (var i = 0; i < _cubes.Length; i++)
         {
             _shader.SetUniform("time", (float) _time.Elapsed.TotalSeconds + i * 13.0f);
-            _shader.SetUniform("lightPosView", _camera.WorldToViewCoords(_lightPos));
+            _shader.SetUniform("lightPosView", (new Vector4(_lightPos, 1.0f) * _camera.ViewMat).Xyz);
             _shader.SetUniform("normalMat", new Matrix3(Matrix4.Transpose(_cubes[i].ModelMat.Inverted())) * new Matrix3(_camera.ViewMat));
             _cubes[i].Draw(_camera);
         }

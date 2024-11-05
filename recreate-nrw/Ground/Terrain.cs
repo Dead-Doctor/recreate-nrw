@@ -172,7 +172,7 @@ public class Terrain
     {
         var offset = new Vector2(_biggestSquares / 2.0f) - camera.Position.Xz.Modulo(_biggestSquares);
         var eye = new Vector3(-offset.X, camera.Position.Y, -offset.Y);
-        var viewMat = Matrix4.LookAt(eye, eye + camera.Front, camera.Up);
+        var viewMat = camera.CalculateViewMatrixAt(eye);
         var modelPos = camera.Position.Xz + offset;
         _shader.SetUniform("modelPos", modelPos);
         _shader.SetUniform("viewMat", viewMat);
