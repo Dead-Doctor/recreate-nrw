@@ -58,7 +58,7 @@ public class Terrain
         set
         {
             _renderDistance = Math.Max(value, 2 * N);
-            _LODs = (int)Math.Ceiling(Math.Log2((float)_renderDistance / N));
+            _LODs = (int)MathF.Ceiling(MathF.Log2((float)_renderDistance / N));
             _biggestSquares = 1 << (_LODs - 1);
             if (_biggestSquares >= N * 4)
                 Console.WriteLine($"[WARNING]: Step size is greater or equal to the size of highest LOD: {_biggestSquares} >= {N * 4}");
@@ -206,7 +206,7 @@ public class Terrain
 
         Center[lod] = tileCenter + new Vector2(centerOffset);
 
-        var topLeftOffset = (int)Math.Ceiling(radius);
+        var topLeftOffset = (int)MathF.Ceiling(radius);
         for (var yOffset = 0; yOffset < TextureLODSize; yOffset++)
         {
             var y = tileCenter.Y - topLeftOffset + yOffset;

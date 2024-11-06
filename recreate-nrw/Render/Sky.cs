@@ -99,8 +99,8 @@ public class Sky
         if (ImGuiExtension.ColorEdit4("Sky Zenith", ref _skyZenith))
             _shader.SetUniform("skyZenith", _skyZenith);
         ImGui.Spacing();
-        var sunAltitude = MathHelper.RadiansToDegrees(Math.Asin(SunDirection.Y));
-        var sunAzimuth = MathHelper.ClampAngle(MathHelper.RadiansToDegrees(Math.Atan2(SunDirection.X, -SunDirection.Y)));
+        var sunAltitude = MathHelper.RadiansToDegrees(MathF.Asin(SunDirection.Y));
+        var sunAzimuth = MathHelper.ClampAngle(MathHelper.RadiansToDegrees(MathF.Atan2(SunDirection.X, -SunDirection.Y)));
         ImGui.Text($"Sun Altitude: {sunAltitude.ToString("N2", CultureInfo.InvariantCulture)}°");
         ImGui.Text($"Sun Azimuth: {sunAzimuth.ToString("N2", CultureInfo.InvariantCulture)}°");
         if (ImGui.SliderFloat("Sun Fall-Off", ref _sunFallOff, 1f, 128f))
@@ -113,7 +113,7 @@ public class Sky
     private static Vector3 CalculateSunDirection(int inYear, int inMonth, int inDay, double gmt, double xLat,
         double xLon)
     {
-        const double rpd = Math.PI / 180.0; // Radians per degree?
+        const double rpd = MathF.PI / 180.0; // Radians per degree?
         var julday = new int[13];
         int xleap, dyear, dayofyr;
         double n, L, g, lambda, epsilon, alpha, delta, R, EoT;

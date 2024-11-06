@@ -23,8 +23,9 @@ public class Walking : IController
     private const float DragCoefficientVertical = 0.7f;
     private const float VerticalCrossSectionalArea = 0.18f; // m^2
     
-    private const float Sensitivity = 0.05f / (2.0f * (float) Math.PI);
+    private const float Sensitivity = 0.05f / (2.0f * MathF.PI);
     
+    //TODO: move duplicated code into input class
     private static readonly Func<KeyboardState, float> ForwardsAxis = Controls.Axis(Keys.E, Keys.D);
     private static readonly Func<KeyboardState, float> SidewardsAxis = Controls.Axis(Keys.F, Keys.S);
     private static readonly Func<KeyboardState, float> UpwardsAxis = Controls.Axis(Keys.Space, Keys.A);
@@ -43,7 +44,7 @@ public class Walking : IController
         {
             var relativeVerticalSpeed = _velocity.Y - WindSpeed.Y;
             var absoluteForce = 0.5f * AirDensity * relativeVerticalSpeed*relativeVerticalSpeed * DragCoefficientVertical * VerticalCrossSectionalArea;
-            return -Math.Sign(relativeVerticalSpeed) * absoluteForce;
+            return -MathF.Sign(relativeVerticalSpeed) * absoluteForce;
         }
     }
 
@@ -106,7 +107,7 @@ public class Walking : IController
             
             if (horizontalSpeed >= MaxWalkingSpeed)
                 _velocity.Xz = horizontalDirection * MaxWalkingSpeed;
-            _velocity.Xz -= horizontalDirection * Math.Min(GroundResistance * (float)deltaTime, horizontalSpeed);
+            _velocity.Xz -= horizontalDirection * MathF.Min(GroundResistance * (float)deltaTime, horizontalSpeed);
         }
         
         _position += _velocity * (float)deltaTime;

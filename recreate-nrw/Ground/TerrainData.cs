@@ -60,7 +60,7 @@ public static class TerrainData
     static TerrainData()
     {
         // file: tile_{log2(BaseTileSize)}_{tile.X}_{tile.Y}_{tile.Z}.gz
-        var tilePrefix = $"{TilesDirectory}tile_{(int)Math.Log2(BaseTileSize)}_";
+        var tilePrefix = $"{TilesDirectory}tile_{(int)MathF.Log2(BaseTileSize)}_";
         foreach (var file in Directory.EnumerateFiles(TilesDirectory))
         {
             if (!file.StartsWith(tilePrefix)) continue;
@@ -201,7 +201,7 @@ public static class TerrainData
 
     private static float[] LoadTile(Vector3i pos)
     {
-        var file = $"{TilesDirectory}tile_{(int)Math.Log2(BaseTileSize)}_{pos.X}_{pos.Y}_{pos.Z}.gz";
+        var file = $"{TilesDirectory}tile_{(int)MathF.Log2(BaseTileSize)}_{pos.X}_{pos.Y}_{pos.Z}.gz";
         using var stream = File.OpenRead(file);
         using var decompressed = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(decompressed);
@@ -222,7 +222,7 @@ public static class TerrainData
         var bytes = new byte[BaseTileSize * BaseTileSize * sizeof(float)];
         Buffer.BlockCopy(tile, 0, bytes, 0, bytes.Length);
 
-        var file = $"{TilesDirectory}tile_{(int)Math.Log2(BaseTileSize)}_{pos.X}_{pos.Y}_{pos.Z}.gz";
+        var file = $"{TilesDirectory}tile_{(int)MathF.Log2(BaseTileSize)}_{pos.X}_{pos.Y}_{pos.Z}.gz";
         using var compressed = File.OpenWrite(file);
         using var stream = new GZipStream(compressed, CompressionMode.Compress);
         stream.Write(bytes);
@@ -230,7 +230,7 @@ public static class TerrainData
         //TODO: free memory of data tiles that have been completely converted to tiles
 
         /*// Export as grayscale heightmap
-        var path = $"Debug/tile_{(int)Math.Log2(BaseTileSize)}_{pos.X}_{pos.Y}_{pos.Z}.pgm";
+        var path = $"Debug/tile_{(int)MathF.Log2(BaseTileSize)}_{pos.X}_{pos.Y}_{pos.Z}.pgm";
         using var stream = File.OpenWrite(path);
         stream.Write(Encoding.ASCII.GetBytes($"P5 {BaseTileSize} {BaseTileSize} {byte.MaxValue}\n"));
         foreach (var height in tile)

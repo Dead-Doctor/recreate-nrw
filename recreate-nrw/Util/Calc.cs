@@ -32,11 +32,11 @@ public static class Calc
     public static Vector3i ToVector3i(this System.Numerics.Vector3 v) => new((int)v.X, (int)v.Y, (int)v.Z);
     
     [PublicAPI]
-    public static Vector2i FloorToInt(this Vector2 vec) => new((int) Math.Floor(vec.X), (int) Math.Floor(vec.Y));
+    public static Vector2i FloorToInt(this Vector2 vec) => new((int) MathF.Floor(vec.X), (int) MathF.Floor(vec.Y));
 
     [PublicAPI]
     public static Vector3i FloorToInt(this Vector3 vec) =>
-        new((int) Math.Floor(vec.X), (int) Math.Floor(vec.Y), (int) Math.Floor(vec.Z));
+        new((int) MathF.Floor(vec.X), (int) MathF.Floor(vec.Y), (int) MathF.Floor(vec.Z));
 
     [PublicAPI]
     public static Box2 GrowToBox(this Vector2 vec, float radius) => new(vec - new Vector2(radius), vec + new Vector2(radius));
@@ -75,6 +75,6 @@ public static class Calc
     [PublicAPI]
     public static float EaseInOutSine(float v)
     {
-        return -((float) Math.Cos(Math.PI * v) - 1.0f) / 2.0f;
+        return -(MathF.Cos(MathF.PI * v) - 1.0f) / 2.0f;
     }
 }

@@ -106,7 +106,7 @@ public class StaticTexture : Texture, IDisposable
 
         if (textureInfo is ITextureInfo2DBase textureInfo2D)
         {
-            levels += (int)Math.Floor(Math.Log2(Math.Max(textureInfo2D.Size.X, textureInfo2D.Size.Y)));
+            levels += (int)MathF.Floor(MathF.Log2(Math.Max(textureInfo2D.Size.X, textureInfo2D.Size.Y)));
 
             var minFilter = textureInfo2D.NearestFiltering
                 ? textureInfo2D.Mipmaps ? TextureMinFilter.NearestMipmapNearest : TextureMinFilter.Nearest

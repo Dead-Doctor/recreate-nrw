@@ -92,19 +92,19 @@ public class Map
         set
         {
             _zoom = value;
-            _size = Coordinate.TerrainTileSize * (float)Math.Pow(2, -value);
+            _size = Coordinate.TerrainTileSize * MathF.Pow(2, -value);
         }
     }
 
     private void Redraw(Vector2 maxSize, Vector2 size, float deltaTime)
     {
         _framebuffer.Size = new Vector2i(
-            (int)Math.Max(size.X == 0.0 ? maxSize.X : size.X, 10f),
-            (int)Math.Max(size.Y == 0.0 ? maxSize.Y : size.Y, 10f)
+            (int)MathF.Max(size.X == 0.0 ? maxSize.X : size.X, 10f),
+            (int)MathF.Max(size.Y == 0.0 ? maxSize.Y : size.Y, 10f)
         );
 
         var difference = TargetZoom - Zoom;
-        if (Math.Abs(difference) > ZoomEpsilon)
+        if (MathF.Abs(difference) > ZoomEpsilon)
         {
             Zoom += difference * deltaTime * 3f;
         }

@@ -156,7 +156,7 @@ public class Profiler
         ImGui.PushStyleColor(ImGuiCol.ButtonHovered, ImGuiExtension.Hsv(hue, 0.7f, 0.7f));
         ImGui.PushStyleColor(ImGuiCol.ButtonActive, ImGuiExtension.Hsv(hue, 0.8f, 0.8f));
 
-        var size = new Vector2(Math.Max(endX - startX - PaddingX * 2, 1f), ButtonHeight);
+        var size = new Vector2(MathF.Max(endX - startX - PaddingX * 2, 1f), ButtonHeight);
         if (ImGui.Button(Description, size))
         {
             _selectedNode = this;

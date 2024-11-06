@@ -10,7 +10,7 @@ public class Creative : IController
 {
     private const float Speed = 5f;
     private const float SprintingSpeed = 100f;
-    private const float Sensitivity = 0.05f / (2.0f * (float) Math.PI);
+    private const float Sensitivity = 0.05f / (2.0f * MathF.PI);
     // Time to zoom in/out in seconds
     private const float ZoomFactor = 1f / 3f;
     private const float ZoomSpeed = 0.1f;

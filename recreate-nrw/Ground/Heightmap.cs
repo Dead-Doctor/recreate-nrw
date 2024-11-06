@@ -96,8 +96,8 @@ public class Heightmap
     {
         get
         {
-            var worldTile = new Vector2i((int) Math.Floor(pos.X / (float) Size),
-                (int) Math.Floor(pos.Y / (float) Size));
+            var worldTile = new Vector2i((int) MathF.Floor(pos.X / (float) Size),
+                (int) MathF.Floor(pos.Y / (float) Size));
             if (!_values.ContainsKey(worldTile)) throw new Exception($"The tile {worldTile} containing the position {pos} is not loaded!");
             var subTilePos = GetSubTilePos(pos);
             return new Vector3(pos.X, _values[worldTile][subTilePos.X, subTilePos.Y], pos.Y);
