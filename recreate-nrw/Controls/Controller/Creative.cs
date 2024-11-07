@@ -22,10 +22,6 @@ public class Creative : IController
     private float _yaw;
     private float _pitch;
     
-    private readonly Func<KeyboardState, float> _forwardsAxis = Controls.Axis(Keys.E, Keys.D);
-    private readonly Func<KeyboardState, float> _sidewardsAxis = Controls.Axis(Keys.F, Keys.S);
-    private readonly Func<KeyboardState, float> _upwardsAxis = Controls.Axis(Keys.Space, Keys.A);
-    
     private Camera _camera = null!;
 
     public void Activate(Camera camera)
@@ -36,22 +32,22 @@ public class Creative : IController
         _camera.Rotation = Quaternion.FromEulerAngles(0f, 0f, 0f);
     }
 
-    public void Update(KeyboardState keyboard, MouseState mouse, double deltaTime)
+    public void Update(double deltaTime)
     {
-        if (keyboard.IsKeyPressed(Keys.B)) _sprinting ^= true;
+        if (Input.Pressed("sprint")) _sprinting ^= true;
         var currentSpeed = _sprinting ? SprintingSpeed : Speed;
 
         var upwards = Vector3.UnitY;
         var sidewards = Vector3.Cross(_camera.Front, upwards).Normalized();
         var forwards = Vector3.Cross(upwards, sidewards).Normalized();
         
-        var velocity = _forwardsAxis(keyboard) * forwards + _sidewardsAxis(keyboard) * sidewards +
-                       _upwardsAxis(keyboard) * upwards;
+        var velocity = Input.Axis("vertical") * forwards + Input.Axis("horizontal") * sidewards +
+                       Input.Axis("accelerate") * upwards;
         
         if (velocity != Vector3.Zero) _camera.Position += velocity.Normalized() * currentSpeed * (float) deltaTime;
 
         var zoomChange = (float) deltaTime / ZoomSpeed;
-        if (!keyboard.IsKeyDown(Keys.V)) zoomChange *= -1.0f;
+        if (!Input.Held("zoom")) zoomChange *= -1.0f;
         _zoom = Math.Clamp(_zoom + zoomChange, 0.0f, 1.0f);
 
         // interpolate range: (1..ZoomFovMultiplier)
@@ -61,7 +57,7 @@ public class Creative : IController
 
         var turnDistance = Sensitivity * zoomFactorInterpolated;
 
-        var turn = mouse.Delta * turnDistance;
+        var turn = Input.Analog() * turnDistance;
         _yaw += turn.X;
         _pitch += turn.Y;
         

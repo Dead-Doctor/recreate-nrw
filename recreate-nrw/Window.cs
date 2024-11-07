@@ -212,6 +212,7 @@ public class Window : GameWindow
             Captured(task, "Grass", _ => _grass.Window());
             Captured(task, "Sky", _ => _sky.Window());
             Captured(task, "Profiler", _ => Profiler.Window());
+            Captured(task, "Input", _ => Input.Window());
             Captured(task, "Info", _ => InfoWindow());
         }));
 
@@ -264,7 +265,7 @@ public class Window : GameWindow
             _controls.SwitchController(_controllers[_currentController]);
         }
 
-        _controls.Window();
+        _controls.InfoWindow();
 
 #if INCLUDE_TERRAIN_MODEL
         if (ImGui.Checkbox("Render Terrain Model", ref _renderTerrainModel))

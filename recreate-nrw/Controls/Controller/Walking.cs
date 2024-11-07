@@ -25,11 +25,6 @@ public class Walking : IController
     
     private const float Sensitivity = 0.05f / (2.0f * MathF.PI);
     
-    //TODO: move duplicated code into input class
-    private static readonly Func<KeyboardState, float> ForwardsAxis = Controls.Axis(Keys.E, Keys.D);
-    private static readonly Func<KeyboardState, float> SidewardsAxis = Controls.Axis(Keys.F, Keys.S);
-    private static readonly Func<KeyboardState, float> UpwardsAxis = Controls.Axis(Keys.Space, Keys.A);
-    
     private Camera _camera = null!;
     
     private float _yaw;
@@ -56,9 +51,9 @@ public class Walking : IController
         _velocity = Vector3.Zero;
     }
 
-    public void Update(KeyboardState keyboard, MouseState mouse, double deltaTime /* s */)
+    public void Update(double deltaTime /* s */)
     {
-        var turn = mouse.Delta * Sensitivity;
+        var turn = Input.Analog() * Sensitivity;
         _yaw += turn.X;
         _pitch += turn.Y;
         
@@ -79,13 +74,13 @@ public class Walking : IController
         {
             _position.Y += -distanceToGround;
             if (_velocity.Y <= 0) _velocity.Y = 0;
-            if (UpwardsAxis(keyboard) >= 1f) _velocity.Y = JumpVelocity;
+            if (Input.Axis("accelerate") >= 1f) _velocity.Y = JumpVelocity;
             
             var upwards = Vector3.UnitY;
             var sidewards = Vector3.Cross(_camera.Front, upwards).Normalized();
             var forwards = Vector3.Cross(upwards, sidewards).Normalized();
             
-            var moveDirection = ForwardsAxis(keyboard) * forwards.Xz + SidewardsAxis(keyboard) * sidewards.Xz;
+            var moveDirection = Input.Axis("vertical") * forwards.Xz + Input.Axis("horizontal") * sidewards.Xz;
             if (moveDirection.LengthSquared > 1e-3f)
             {
                 acceleration.Xz += moveDirection.Normalized() * WalkingAcceleration;

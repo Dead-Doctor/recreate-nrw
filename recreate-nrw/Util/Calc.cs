@@ -18,6 +18,12 @@ public static class Calc
     public static System.Numerics.Vector3 ToSystem(this Vector3i v) => new(v.X, v.Y, v.Z);
     
     [PublicAPI]
+    public static System.Numerics.Vector4 ToSystem(this Vector4 v) => new(v.X, v.Y, v.Z, v.W);
+    
+    [PublicAPI]
+    public static System.Numerics.Vector4 ToSystem(this Vector4i v) => new(v.X, v.Y, v.Z, v.W);
+    
+    [PublicAPI]
     public static Vector2 ToVector2(this System.Numerics.Vector2 v) => new(v.X, v.Y);
     
     // ReSharper disable once InconsistentNaming
